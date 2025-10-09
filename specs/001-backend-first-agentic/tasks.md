@@ -5,11 +5,11 @@
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-- [ ] T001 Initialize backend project structure under `backend/` and `frontend/`
-- [ ] T002 Add Python environment and dependencies via `uv` (FastAPI, Agents SDK, SQLAlchemy async, Redis, Pinecone, httpx, pytest, ruff)
-- [ ] T003 Add Node/Next.js scaffolding with `frontend/` baseline (no pages yet)
-- [ ] T004 [P] Add lint/format config (ruff, black/isort, eslint/prettier) and pre-commit hooks
-- [ ] T005 Create `.env.sample` with required variables (Gemini, DB, Redis, Pinecone, Secret, Port)
+- [X] T001 Initialize backend project structure under `backend/` and `frontend/`
+- [X] T002 Add Python environment and dependencies via `uv` (FastAPI, Agents SDK, SQLAlchemy async, Redis, Pinecone, httpx, pytest, ruff)
+- [X] T003 Add Node/Next.js scaffolding with `frontend/` baseline (no pages yet)
+- [X] T004 [P] Add lint/format config (ruff, black/isort, eslint/prettier) and pre-commit hooks
+- [X] T005 Create `.env.sample` with required variables (Gemini, DB, Redis, Pinecone, Secret, Port)
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
