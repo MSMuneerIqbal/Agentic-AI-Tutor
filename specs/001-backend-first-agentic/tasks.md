@@ -78,9 +78,9 @@
 **Independent Test**: Call `/sessions/start` and open WS; verify greeting + first action.
 
 ### Implementation
-- [ ] T013 [US1] Implement `POST /sessions/start` to create session and persist to MySQL/Redis
-- [ ] T014 [US1] Implement Orchestrator Runner to send initial greeting over WS
-- [ ] T015 [US1] Persist directives and initial events to DB
+- [X] T013 [US1] Implement `POST /sessions/start` to create session and persist to MySQL/Redis
+- [X] T014 [US1] Implement Orchestrator Runner to send initial greeting over WS
+- [X] T015 [US1] Persist directives and initial events to DB
 
 ## Phase 4: User Story 2 - Learning style assessment and profile (Priority: P1)
 

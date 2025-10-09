@@ -177,6 +177,69 @@ class RedisClient:
         items = await self.client.lrange(key, start, end)
         return [json.loads(item) for item in items]
 
+    # Set operations (for active sessions tracking)
+    async def set_add(self, key: str, *values: str) -> int:
+        """
+        Add values to a set.
+
+        Args:
+            key: Set key
+            *values: Values to add
+
+        Returns:
+            Number of values added
+        """
+        return await self.client.sadd(key, *values)
+
+    async def set_remove(self, key: str, *values: str) -> int:
+        """
+        Remove values from a set.
+
+        Args:
+            key: Set key
+            *values: Values to remove
+
+        Returns:
+            Number of values removed
+        """
+        return await self.client.srem(key, *values)
+
+    async def set_cardinality(self, key: str) -> int:
+        """
+        Get set cardinality (number of members).
+
+        Args:
+            key: Set key
+
+        Returns:
+            Number of members in set
+        """
+        return await self.client.scard(key)
+
+    # Generic Redis operations
+    async def setex(self, key: str, time: int, value: str) -> None:
+        """
+        Set key with expiration time.
+
+        Args:
+            key: Key name
+            time: Expiration time in seconds
+            value: Value to set
+        """
+        await self.client.setex(key, time, value)
+
+    async def get(self, key: str) -> str | None:
+        """
+        Get value by key.
+
+        Args:
+            key: Key name
+
+        Returns:
+            Value or None if not found
+        """
+        return await self.client.get(key)
+
 
 # Global Redis client instance
 redis_client = RedisClient()
