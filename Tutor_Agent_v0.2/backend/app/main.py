@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import sessions, websocket
+from app.api.routes import metrics, sessions, websocket
 from app.core.config import get_settings
 from app.core.logging import setup_logging, get_logger
 from app.core.metrics import get_metrics_collector
@@ -39,6 +39,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Metrics middleware (first, to track all requests)
+from app.api.middleware import MetricsMiddleware
+
+app.add_middleware(MetricsMiddleware)
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -51,6 +56,7 @@ app.add_middleware(
 # Include routers
 app.include_router(sessions.router, prefix="/api/v1", tags=["sessions"])
 app.include_router(websocket.router, tags=["websocket"])
+app.include_router(metrics.router, tags=["metrics"])
 
 
 @app.get("/healthz")
@@ -69,13 +75,5 @@ async def root():
     }
 
 
-@app.get("/metrics")
-async def get_metrics():
-    """
-    Get application metrics (stub).
-
-    TODO: Integrate with Prometheus/CloudWatch.
-    """
-    metrics = get_metrics_collector().get_metrics()
-    return {"metrics": metrics}
+# Metrics endpoints are now in app.api.routes.metrics
 

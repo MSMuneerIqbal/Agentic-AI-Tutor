@@ -2,6 +2,8 @@
 
 from typing import Any
 
+from app.core.logging import get_logger
+from app.core.metrics import get_metrics_collector
 from app.guards.schemas import (
     GuardrailViolation,
     SecretDetectionRule,
@@ -9,6 +11,9 @@ from app.guards.schemas import (
     validate_input,
     validate_output,
 )
+
+logger = get_logger(__name__)
+metrics = get_metrics_collector()
 
 
 class GuardrailPolicy:
@@ -62,6 +67,14 @@ class GuardrailPolicy:
 
         # Apply input validation
         result = validate_input(user_input)
+        
+        # Track guardrail trigger if violated
+        if result.violated:
+            metrics.increment_guardrail_trigger(agent_name, "input_validation")
+            logger.warning(
+                f"Input guardrail triggered for {agent_name}",
+                extra={"agent": agent_name, "reason": result.reason},
+            )
 
         # Additional agent-specific rules can be added here
         if agent_name == "Quiz" and context:
@@ -98,6 +111,14 @@ class GuardrailPolicy:
 
         # Apply output validation
         result = validate_output(agent_output)
+        
+        # Track guardrail trigger if violated
+        if result.violated:
+            metrics.increment_guardrail_trigger(agent_name, "output_validation")
+            logger.warning(
+                f"Output guardrail triggered for {agent_name}",
+                extra={"agent": agent_name, "reason": result.reason},
+            )
 
         # Additional agent-specific rules
         if agent_name == "Tutor":

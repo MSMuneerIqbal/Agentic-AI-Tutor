@@ -61,12 +61,12 @@
 
 ## Phase 2B: Observability & Metrics
 
-- [ ] T-OBS-001 | metrics/emit_core
+- [X] T-OBS-001 | metrics/emit_core
   - Title: Emit core metrics & dashboards
   - Description: Instrument request latency (per endpoint), p95 for lesson generation, guardrail_trigger_count, tavily_errors_count, pinecone_query_latency, sessions_active. Expose Prometheus endpoint or structured logs.
   - Acceptance: metrics exported and testable; p95 collector for lesson generation present.
   - Priority: HIGH
-- [ ] T-OBS-002 | metrics/alerts
+- [X] T-OBS-002 | metrics/alerts
   - Title: Alerts for tool/guardrail failures
   - Description: Alert rules: guardrail_reject_rate > X%/5m, Pinecone error rate >1%, Gemini timeout spike. Document runbook.
   - Acceptance: alert definitions in docs and runbook snippet in `docs/ops`.

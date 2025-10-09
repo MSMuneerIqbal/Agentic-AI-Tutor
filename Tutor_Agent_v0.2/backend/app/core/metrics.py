@@ -1,12 +1,23 @@
-"""Metrics collection and export stubs."""
+"""Metrics collection and export for observability."""
 
 import time
 from collections import defaultdict
+from datetime import datetime
 from typing import Any
 
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Metric name constants
+METRIC_REQUEST_LATENCY = "request_latency"
+METRIC_LESSON_GENERATION_LATENCY = "lesson_generation_latency"
+METRIC_GUARDRAIL_TRIGGER_COUNT = "guardrail_trigger_count"
+METRIC_TAVILY_ERRORS_COUNT = "tavily_errors_count"
+METRIC_PINECONE_QUERY_LATENCY = "pinecone_query_latency"
+METRIC_SESSIONS_ACTIVE = "sessions_active"
+METRIC_GEMINI_TIMEOUT_COUNT = "gemini_timeout_count"
+METRIC_TOOL_ERROR_COUNT = "tool_error_count"
 
 
 class MetricsCollector:
@@ -59,10 +70,10 @@ class MetricsCollector:
 
     def get_metrics(self) -> dict[str, Any]:
         """
-        Get all metrics.
+        Get all metrics in Prometheus-compatible format.
 
         Returns:
-            Dictionary of all metrics
+            Dictionary of all metrics with detailed stats
         """
         return {
             "counters": dict(self._counters),
@@ -70,6 +81,9 @@ class MetricsCollector:
                 name: {
                     "count": len(values),
                     "sum": sum(values),
+                    "min": min(values) if values else 0.0,
+                    "max": max(values) if values else 0.0,
+                    "mean": sum(values) / len(values) if values else 0.0,
                     "p50": self._percentile(values, 50),
                     "p95": self._percentile(values, 95),
                     "p99": self._percentile(values, 99),
@@ -77,7 +91,59 @@ class MetricsCollector:
                 for name, values in self._histograms.items()
             },
             "gauges": dict(self._gauges),
+            "timestamp": datetime.utcnow().isoformat() + "Z",
         }
+    
+    # Convenience methods for core metrics
+    
+    def track_request_latency(self, endpoint: str, latency: float) -> None:
+        """Track HTTP request latency."""
+        self.record_histogram(
+            METRIC_REQUEST_LATENCY,
+            latency,
+            labels={"endpoint": endpoint}
+        )
+    
+    def track_lesson_generation_latency(self, latency: float) -> None:
+        """Track lesson generation latency (for p95 monitoring)."""
+        self.record_histogram(METRIC_LESSON_GENERATION_LATENCY, latency)
+    
+    def increment_guardrail_trigger(self, agent: str, violation_type: str) -> None:
+        """Increment guardrail trigger counter."""
+        self.increment_counter(
+            METRIC_GUARDRAIL_TRIGGER_COUNT,
+            labels={"agent": agent, "type": violation_type}
+        )
+    
+    def increment_tavily_error(self, error_type: str) -> None:
+        """Increment TAVILY error counter."""
+        self.increment_counter(
+            METRIC_TAVILY_ERRORS_COUNT,
+            labels={"error_type": error_type}
+        )
+    
+    def track_pinecone_query_latency(self, latency: float, namespace: str = "default") -> None:
+        """Track Pinecone query latency."""
+        self.record_histogram(
+            METRIC_PINECONE_QUERY_LATENCY,
+            latency,
+            labels={"namespace": namespace}
+        )
+    
+    def set_sessions_active(self, count: int) -> None:
+        """Set active sessions gauge."""
+        self.set_gauge(METRIC_SESSIONS_ACTIVE, float(count))
+    
+    def increment_gemini_timeout(self) -> None:
+        """Increment Gemini timeout counter."""
+        self.increment_counter(METRIC_GEMINI_TIMEOUT_COUNT)
+    
+    def increment_tool_error(self, tool_name: str, error_type: str) -> None:
+        """Increment tool error counter."""
+        self.increment_counter(
+            METRIC_TOOL_ERROR_COUNT,
+            labels={"tool": tool_name, "error_type": error_type}
+        )
 
     @staticmethod
     def _make_key(name: str, labels: dict[str, str] | None) -> str:
