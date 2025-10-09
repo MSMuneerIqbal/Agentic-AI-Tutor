@@ -92,6 +92,16 @@
 - [x] T017 [US2] Persist `AssessmentResult` and profile updates
 - [x] T018 [US2] Orchestrator state transition into/out of assessing
 
+## Phase 4.5: User Story 2.5 - Personalized study plan creation (Priority: P1)
+
+**Goal**: Create personalized study plan based on learning style assessment and user goals.
+**Independent Test**: Complete assessment, then verify personalized study plan is generated and stored.
+
+### Implementation
+- [x] T016.5 [US2.5] Create Planning agent with study plan generation logic
+- [x] T017.5 [US2.5] Implement Plan model and database persistence
+- [x] T018.5 [US2.5] Integrate Planning agent into session flow (Assessment → Planning → Tutoring)
+
 ## Phase 5: User Story 3 - Lesson with supporting knowledge (Priority: P2)
 
 **Goal**: Deliver concise lesson with examples and optional citations.

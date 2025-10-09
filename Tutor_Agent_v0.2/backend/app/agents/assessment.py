@@ -266,7 +266,7 @@ Keep questions clear, concise, and engaging. After assessment, provide a brief, 
             "learning_style": style,
             "confidence": confidence,
             "answers": answers,
-            "next_state": "tutoring",
+            "next_state": "planning",
         }
 
     def _validate_answer(self, user_input: str) -> bool:

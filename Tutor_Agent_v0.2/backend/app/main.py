@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import metrics, profiles, sessions, websocket
+from app.api.routes import metrics, plans, profiles, sessions, websocket
 from app.core.config import get_settings
 from app.core.logging import setup_logging, get_logger
 from app.core.metrics import get_metrics_collector
@@ -56,6 +56,7 @@ app.add_middleware(
 # Include routers
 app.include_router(sessions.router, prefix="/api/v1", tags=["sessions"])
 app.include_router(profiles.router, prefix="/api/v1", tags=["profiles"])
+app.include_router(plans.router, prefix="/api/v1", tags=["plans"])
 app.include_router(websocket.router, tags=["websocket"])
 app.include_router(metrics.router, tags=["metrics"])
 

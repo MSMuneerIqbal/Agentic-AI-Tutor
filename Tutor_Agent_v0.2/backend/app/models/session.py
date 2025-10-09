@@ -22,6 +22,7 @@ class SessionState(str, Enum):
 
     GREETING = "greeting"
     ASSESSING = "assessing"
+    PLANNING = "planning"
     TUTORING = "tutoring"
     QUIZZING = "quizzing"
     REMEDIATING = "remediating"
