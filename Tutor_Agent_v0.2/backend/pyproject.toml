@@ -1,0 +1,72 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Tutor GPT Backend - Agentic tutoring system"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiosqlite>=0.21.0",
+    "asyncmy>=0.2.10",
+    "fastapi>=0.118.2",
+    "httpx>=0.28.1",
+    "openai-agents>=0.3.3",
+    "pinecone-client>=6.0.0",
+    "playwright>=1.55.0",
+    "pydantic>=2.12.0",
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
+    "pytest-playwright>=0.7.1",
+    "python-dotenv>=1.1.1",
+    "redis>=6.4.0",
+    "ruff>=0.14.0",
+    "sqlalchemy[asyncio]>=2.0.43",
+    "uvicorn[standard]>=0.37.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest-cov",
+    "pytest-asyncio",
+    "black",
+    "isort",
+    "mypy",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["tests/*", "**/__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
