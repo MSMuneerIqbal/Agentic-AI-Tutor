@@ -23,37 +23,37 @@
 
 ## Phase 2A: Core Tests, Guardrails, and MCP UI
 
-- [ ] T-GU-001 | tests/ws_greeting_e2e
+- [X] T-GU-001 | tests/ws_greeting_e2e
   - Title: WebSocket Greeting E2E test (GREETING → Assessment/Tutor)
   - Description: End-to-end test opens WS to `/ws/sessions/{id}`, triggers FIRST RUNNER (backend sends "hello"), asserts frontend receives single contextual greeting message matching schema {type, agent, text, timestamp}. Mock Gemini & tools in CI; run Orchestrator and session state.
   - Acceptance: WS opens; greeting within 5s; JSON schema matches; on simulated Gemini timeout, safe fallback greeting is returned.
   - Priority: HIGH
-- [ ] T-GU-002 | tests/rag_contract
+- [X] T-GU-002 | tests/rag_contract
   - Title: RAG retrieval contract test (rag_tool.retrieve)
   - Description: Unit/integration test calls `rag_tool.retrieve(query)` with sample indexed vectors (test namespace or mock). Asserts list of `{chunk_id, text_snippet<=400 tokens, metadata:{title,url,source_type}}` and Redis TTL cache.
   - Acceptance: returns ≤k items; required metadata present; snippet ≤400 tokens; Redis cache key created TTL ~3600s.
   - Priority: HIGH
-- [ ] T-GU-003 | tests/guardrail_fallback
+- [X] T-GU-003 | tests/guardrail_fallback
   - Title: Guardrail fallback & logging test
   - Description: Simulate output guardrail violation; assert sanitized fallback response, `agent_logs` entry without secrets.
   - Acceptance: sanitized response delivered; `agent_logs` entry exists; CI asserts log schema.
   - Priority: HIGH
-- [ ] T-GU-004 | tests/reconnect_resume
+- [X] T-GU-004 | tests/reconnect_resume
   - Title: Reconnect & resume session test
   - Description: Disconnect mid-session; reconnect with same session_id; assert resume state and context.
   - Acceptance: WS receives resumed-state greeting; session state matches Redis/MySQL snapshot.
   - Priority: MEDIUM
-- [ ] T-GU-005 | tests/playwright_greeting_smoke
+- [X] T-GU-005 | tests/playwright_greeting_smoke
   - Title: Playwright smoke test for WS greeting (MCP UI test)
   - Description: Use Playwright to open frontend chat, call `/sessions/start`, open WS, assert greeting card appears; satisfies MCP UI test requirement.
   - Acceptance: Greeting card appears with expected agent name/options within 8s; failures logged as MCP/Playwright failures.
   - Priority: HIGH
-- [ ] T-CON-001 | constitution/playwright_task
+- [X] T-CON-001 | constitution/playwright_task
   - Title: Ensure constitution rule: Playwright UI test present
   - Description: Add Playwright smoke into CI to satisfy MCP UI testing requirement; reference T-GU-005.
   - Acceptance: CI runs Playwright test; docs mention constitutional check.
   - Priority: HIGH
-- [ ] T-SEC-001 | guardrail/policy_task
+- [X] T-SEC-001 | guardrail/policy_task
   - Title: Guardrail policy implementation task
   - Description: Implement guardrail schema definitions; register input/output guardrails for all agents; create minimal e2e to validate fallback (T-GU-003).
   - Acceptance: Guardrails present for assessment/tutor/quiz; tests pass.
