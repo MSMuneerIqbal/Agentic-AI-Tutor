@@ -5,6 +5,7 @@ description = "Tutor GPT Backend - Agentic tutoring system"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "aiosqlite>=0.21.0",
     "asyncmy>=0.2.10",
     "fastapi>=0.118.2",
     "httpx>=0.28.1",
@@ -12,6 +13,7 @@ dependencies = [
     "pinecone-client>=6.0.0",
     "pydantic>=2.12.0",
     "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
     "python-dotenv>=1.1.1",
     "redis>=6.4.0",
     "ruff>=0.14.0",
@@ -59,6 +61,9 @@ exclude_lines = [
     "raise NotImplementedError",
     "if __name__ == .__main__.:",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
 
 [build-system]
 requires = ["hatchling"]

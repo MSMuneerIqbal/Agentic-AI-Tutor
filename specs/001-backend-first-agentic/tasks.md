@@ -13,13 +13,13 @@
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-- [ ] T006 Setup database engine and base models per `data-model.md` in `backend/app/models/`
-- [ ] T007 [P] Configure Redis client and session store utilities in `backend/app/core/redis.py`
-- [ ] T008 [P] Configure Agents SDK (Gemini LLM + embeddings) and guardrails in `backend/app/agents/`
-- [ ] T009 Create API app skeleton with FastAPI, routers, error handlers in `backend/app/api/__init__.py`
-- [ ] T010 Configure structured JSON logging and metrics stubs
-- [ ] T011 Add WebSocket endpoint skeleton `/ws/sessions/{session_id}`
-- [ ] T012 Add REST endpoint skeleton `POST /sessions/start`
+- [X] T006 Setup database engine and base models per `data-model.md` in `backend/app/models/`
+- [X] T007 [P] Configure Redis client and session store utilities in `backend/app/core/redis.py`
+- [X] T008 [P] Configure Agents SDK (Gemini LLM + embeddings) and guardrails in `backend/app/agents/`
+- [X] T009 Create API app skeleton with FastAPI, routers, error handlers in `backend/app/api/__init__.py`
+- [X] T010 Configure structured JSON logging and metrics stubs
+- [X] T011 Add WebSocket endpoint skeleton `/ws/sessions/{session_id}`
+- [X] T012 Add REST endpoint skeleton `POST /sessions/start`
 
 ## Phase 2A: Core Tests, Guardrails, and MCP UI
 
