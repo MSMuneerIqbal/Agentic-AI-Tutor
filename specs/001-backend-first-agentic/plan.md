@@ -78,7 +78,7 @@ frontend/
 GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
 GEMINI_API_KEY=<YOUR_GEMINI_API_KEY>
 GEMINI_MODEL=gemini-2.0-flash-exp
-EMBEDDING_MODEL=text-embedding-004
+EMBEDDING_MODEL=gemini-embedding-1.0
 DATABASE_URL=mysql+asyncmy://user:pass@mysql:3306/tutor_db
 REDIS_URL=redis://redis:6379/0
 PINECONE_API_KEY=<PINECONE_KEY>
@@ -89,28 +89,37 @@ PORT=8000
 
 ## RAG Design (Pinecone)
 
-- Embeddings: Gemini embeddings (`EMBEDDING_MODEL` recorded in config)  
-- Index: dimension matches embeddings; namespace per tenant/project  
-- Metadata schema: source_id, source_type, title, url, chunk_id, uploaded_by?, created_at  
-- Chunking: ~400–600 tokens (or 1–2KB) with ~20% overlap  
-- Storage: store chunk IDs and short excerpts in DB; full text only with consent in controlled storage  
-- Indexing worker: async background job → extract → split → embed → upsert batches → record status  
-- Retrieval: `rag_tool.retrieve(query, k=5, filter?)` → embed → query → return chunk text (≤400 tokens) + citations; Redis cache TTL 1h  
-- Failover: proceed without RAG on errors; log for admin  
-- Monitoring: job success/failure, vector counts, latencies, quota/usage
+- Embeddings: Gemini embeddings (`EMBEDDING_MODEL` recorded in config, e.g., `gemini-embedding-1.0`).  
+- Index: dimension MUST match embedding model; derive dimension from model metadata in index creation script; namespace per tenant/project.  
+- Metadata schema: source_id, source_type, title, url, chunk_id, uploaded_by?, created_at.  
+- Chunking: ~400–600 tokens (or 1–2KB) with ~20% overlap.  
+- Storage: store chunk IDs and short excerpts in DB; full text only with consent in controlled storage.  
+- Indexing worker: async background job → extract → split → embed → upsert batches → record status.  
+- Retrieval: `rag_tool.retrieve(query, k=5, filter?)` → embed → query → return chunk text (≤400 tokens) + citations; Redis cache TTL 1h.  
+- Failover: proceed without RAG on errors; log for admin.  
+- Monitoring: job success/failure, vector counts, latencies, quota/usage.
 
 ## Tools Wiring
 
 - `tools/rag_tool.py`  
   - `index_documents(docs, namespace)`  
   - `retrieve(query, k=5, namespace=None, filter=None)`  
-- Idempotent with retry/backoff; guardrail‑compatible outputs
+- Idempotent with retry/backoff; guardrail‑compatible outputs.
 
 ## Frontend Scope
 
 Pages: index, dashboard, chat, lesson, quiz, admin (optional)  
 Components: ChatClient (WS), TavilyCard, QuizQuestion, ProgressBar  
 Integration: call `/sessions/start`, open WS, render FIRST RUNNER; request examples via agent flow; show loading placeholders; split long lessons; prevent skipping quizzes.
+
+## MCPs & Playwright
+
+MCPs: TAVILY, Context7, Playwright.  
+Playwright will run a minimal UI smoke test that verifies the FIRST RUNNER greeting over WebSocket (see task T-GU-005) to satisfy the constitution’s MCP UI testing requirement.
+
+## Observability
+
+Collect and emit metrics: request latency (per endpoint), p95 lesson-generation latency, guardrail_trigger_count, tavily_errors_count, pinecone_query_latency, sessions_active (see T-OBS-001/T-OBS-002). Alerts documented with runbook excerpts.
 
 ## Parallel Opportunities
 

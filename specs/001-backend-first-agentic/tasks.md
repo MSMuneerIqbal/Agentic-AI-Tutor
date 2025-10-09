@@ -21,6 +21,57 @@
 - [ ] T011 Add WebSocket endpoint skeleton `/ws/sessions/{session_id}`
 - [ ] T012 Add REST endpoint skeleton `POST /sessions/start`
 
+## Phase 2A: Core Tests, Guardrails, and MCP UI
+
+- [ ] T-GU-001 | tests/ws_greeting_e2e
+  - Title: WebSocket Greeting E2E test (GREETING → Assessment/Tutor)
+  - Description: End-to-end test opens WS to `/ws/sessions/{id}`, triggers FIRST RUNNER (backend sends "hello"), asserts frontend receives single contextual greeting message matching schema {type, agent, text, timestamp}. Mock Gemini & tools in CI; run Orchestrator and session state.
+  - Acceptance: WS opens; greeting within 5s; JSON schema matches; on simulated Gemini timeout, safe fallback greeting is returned.
+  - Priority: HIGH
+- [ ] T-GU-002 | tests/rag_contract
+  - Title: RAG retrieval contract test (rag_tool.retrieve)
+  - Description: Unit/integration test calls `rag_tool.retrieve(query)` with sample indexed vectors (test namespace or mock). Asserts list of `{chunk_id, text_snippet<=400 tokens, metadata:{title,url,source_type}}` and Redis TTL cache.
+  - Acceptance: returns ≤k items; required metadata present; snippet ≤400 tokens; Redis cache key created TTL ~3600s.
+  - Priority: HIGH
+- [ ] T-GU-003 | tests/guardrail_fallback
+  - Title: Guardrail fallback & logging test
+  - Description: Simulate output guardrail violation; assert sanitized fallback response, `agent_logs` entry without secrets.
+  - Acceptance: sanitized response delivered; `agent_logs` entry exists; CI asserts log schema.
+  - Priority: HIGH
+- [ ] T-GU-004 | tests/reconnect_resume
+  - Title: Reconnect & resume session test
+  - Description: Disconnect mid-session; reconnect with same session_id; assert resume state and context.
+  - Acceptance: WS receives resumed-state greeting; session state matches Redis/MySQL snapshot.
+  - Priority: MEDIUM
+- [ ] T-GU-005 | tests/playwright_greeting_smoke
+  - Title: Playwright smoke test for WS greeting (MCP UI test)
+  - Description: Use Playwright to open frontend chat, call `/sessions/start`, open WS, assert greeting card appears; satisfies MCP UI test requirement.
+  - Acceptance: Greeting card appears with expected agent name/options within 8s; failures logged as MCP/Playwright failures.
+  - Priority: HIGH
+- [ ] T-CON-001 | constitution/playwright_task
+  - Title: Ensure constitution rule: Playwright UI test present
+  - Description: Add Playwright smoke into CI to satisfy MCP UI testing requirement; reference T-GU-005.
+  - Acceptance: CI runs Playwright test; docs mention constitutional check.
+  - Priority: HIGH
+- [ ] T-SEC-001 | guardrail/policy_task
+  - Title: Guardrail policy implementation task
+  - Description: Implement guardrail schema definitions; register input/output guardrails for all agents; create minimal e2e to validate fallback (T-GU-003).
+  - Acceptance: Guardrails present for assessment/tutor/quiz; tests pass.
+  - Priority: HIGH
+
+## Phase 2B: Observability & Metrics
+
+- [ ] T-OBS-001 | metrics/emit_core
+  - Title: Emit core metrics & dashboards
+  - Description: Instrument request latency (per endpoint), p95 for lesson generation, guardrail_trigger_count, tavily_errors_count, pinecone_query_latency, sessions_active. Expose Prometheus endpoint or structured logs.
+  - Acceptance: metrics exported and testable; p95 collector for lesson generation present.
+  - Priority: HIGH
+- [ ] T-OBS-002 | metrics/alerts
+  - Title: Alerts for tool/guardrail failures
+  - Description: Alert rules: guardrail_reject_rate > X%/5m, Pinecone error rate >1%, Gemini timeout spike. Document runbook.
+  - Acceptance: alert definitions in docs and runbook snippet in `docs/ops`.
+  - Priority: MEDIUM
+
 ## Phase 3: User Story 1 - Session start and first-run greeting (Priority: P1)
 
 **Goal**: Start a session and send a contextual greeting with first action.
@@ -60,6 +111,11 @@
 - [ ] T022 [US4] Quiz agent with hinting and scoring; pass at ≥70%
 - [ ] T023 [US4] Bounded-adaptive length logic (early stop ≥15 mastery; extend to 20 if borderline)
 - [ ] T024 [US4] Remediation mini-lesson and mini-quiz flow
+- [ ] T-DF-001 | quiz/length_policy_test
+  - Title: Quiz length bounded-adaptive policy unit tests
+  - Description: Unit tests assert 15–20 based on profiles; early stop when mastery detected.
+  - Acceptance: covers ≥3 profiles; asserts chosen length & early stop.
+  - Priority: MEDIUM
 
 ## Phase 7: User Story 5 - Feedback and continuous improvement (Priority: P3)
 
@@ -76,9 +132,19 @@
 **Independent Test**: Index sample docs; verify vector count and retrieval.
 
 ### Implementation
+- [ ] T-RAG-001 | pinecone/embedding_model_and_index
+  - Title: Specify embedding model and compute index dimension
+  - Description: Document Gemini embedding model (e.g., `gemini-embedding-1.0`). Compute vector dimension from model metadata; validate Pinecone index settings.
+  - Acceptance: plan.md updated with `EMBEDDING_MODEL=gemini-embedding-1.0`; index script verifies dimension match.
+  - Priority: HIGH
 - [ ] T027 [P] task/pinecone-setup: index creation script, embedding wrapper, chunker
 - [ ] T028 [P] task/index-worker: background worker to run indexing jobs and emit status to MySQL
 - [ ] T029 task/rag-api: implement `POST /api/v1/rag/index` endpoint to enqueue jobs
+- [ ] T-RAG-002 | pinecone/indexer_worker
+  - Title: Indexing worker & indexing-status endpoint
+  - Description: Implement background indexer; add `GET /api/v1/rag/index/{job_id}` to return status.
+  - Acceptance: job states (queued→running→done/failed); status endpoint returns job metadata and vector counts.
+  - Priority: HIGH
 
 ## Phase 9: Frontend Skeleton & WS client
 
@@ -89,6 +155,11 @@
 - [ ] T030 [P] task/frontend-skeleton: scaffold Next.js with pages (index, dashboard, chat, lesson, quiz, admin)
 - [ ] T031 [P] Components: ChatClient, TavilyCard, QuizQuestion, ProgressBar
 - [ ] T032 WS connect and render loop; show loading placeholders and split long lessons
+- [ ] T-UX-001 | admin/indexing_status_page
+  - Title: Admin page: Indexing job status
+  - Description: Frontend admin component queries indexing-status endpoint and displays job history, vector counts, errors.
+  - Acceptance: Admin page lists jobs with status and links to logs.
+  - Priority: LOW
 
 ## Phase N: Polish & Cross-Cutting Concerns
 
