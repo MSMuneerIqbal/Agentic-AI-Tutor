@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
+from app.agents.assessment import AssessmentAgent
 from app.agents.orchestrator import OrchestratorAgent
 from app.core.database import get_db
 from app.core.logging import get_logger
@@ -27,8 +28,9 @@ class Runner:
     """
 
     def __init__(self):
-        """Initialize Runner with Orchestrator Agent."""
+        """Initialize Runner with Orchestrator and Assessment Agents."""
         self.orchestrator = OrchestratorAgent()
+        self.assessment = AssessmentAgent()
 
     async def run_first_runner(self, session_id: str) -> dict[str, Any]:
         """
@@ -116,12 +118,40 @@ class Runner:
             # Get session context
             session_context = await self._get_session_context(session_id)
             
-            # Execute orchestrator with user input
-            result = await self.orchestrator.run(user_input, session_context)
+            # Route to appropriate agent based on session state
+            session_state = session_context.get("state", SessionState.GREETING)
+            
+            if session_state == SessionState.ASSESSING:
+                # Route to Assessment Agent
+                result = await self.assessment.run(user_input, session_context)
+            else:
+                # Route to Orchestrator Agent
+                result = await self.orchestrator.run(user_input, session_context)
             
             # Update session state if needed
             if "next_state" in result:
-                await self._update_session_state(session_id, result["next_state"])
+                next_state = result["next_state"]
+                if isinstance(next_state, str):
+                    # Convert string to SessionState enum
+                    try:
+                        next_state = SessionState(next_state)
+                    except ValueError:
+                        logger.warning(f"Invalid state transition: {next_state}")
+                        next_state = SessionState.TUTORING  # Default fallback
+                
+                await self._update_session_state(session_id, next_state)
+                
+                # Create state transition directive
+                if session_state != next_state:
+                    async for db in get_db():
+                        await directive_service.create_state_transition_directive(
+                            session_id=session_id,
+                            from_state=session_state.value,
+                            to_state=next_state.value,
+                            reason=f"Agent action: {result.get('action', 'unknown')}",
+                            db=db,
+                        )
+                        break
             
             # Persist user input and agent response directives
             async for db in get_db():

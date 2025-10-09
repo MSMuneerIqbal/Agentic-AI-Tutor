@@ -88,6 +88,16 @@ Always be encouraging, clear, and maintain a professional yet friendly tone.""",
                 "action": "handoff_to_assessment",
                 "next_state": SessionState.ASSESSING,
             }
+        
+        # Handle user confirmation to start assessment
+        if (session_state == SessionState.GREETING and 
+            user_input.lower() in ["yes", "ready", "start", "begin", "ok", "okay", "sure"]):
+            return {
+                "agent": self.name,
+                "message": "Perfect! Let's begin your learning style assessment.",
+                "action": "start_assessment",
+                "next_state": SessionState.ASSESSING,
+            }
 
         if session_state == SessionState.TUTORING:
             return {

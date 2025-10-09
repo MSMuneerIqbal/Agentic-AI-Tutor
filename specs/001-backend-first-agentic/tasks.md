@@ -88,9 +88,9 @@
 **Independent Test**: Complete assessment and verify stored profile.
 
 ### Implementation
-- [ ] T016 [US2] Add Assessment agent with question flow and validation
-- [ ] T017 [US2] Persist `AssessmentResult` and profile updates
-- [ ] T018 [US2] Orchestrator state transition into/out of assessing
+- [x] T016 [US2] Add Assessment agent with question flow and validation
+- [x] T017 [US2] Persist `AssessmentResult` and profile updates
+- [x] T018 [US2] Orchestrator state transition into/out of assessing
 
 ## Phase 5: User Story 3 - Lesson with supporting knowledge (Priority: P2)
 
