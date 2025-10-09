@@ -1,0 +1,78 @@
+---
+alwaysApply: true
+
+
+This file defines the Cursor (CLI / code generator / editor assistant) role for the Tutor GPT project. The Cursor role is intended to be given to a code-generation agent (or the Cursor IDE assistant) that will read the project docs (Flow + Technical + prompts) and generate production-ready code, tests, CI, Docker, and deployment artifacts. The Cursor role must follow the Project Constitution exactly.
+
+High-level responsibilities
+
+Read the project docs and prompts (agents_prompts/*.md). Do not assume unstated behavior.
+
+Generate code backend-first (FastAPI + Agents SDK using Gemini), then frontend (Next.js). Follow the task list in the Technical doc.
+
+Create modular, testable code, with one coherent unit per commit. Add meaningful commit messages and ADRs when making architecture changes.
+
+Always use MCPs (Context7, TAVILY, Playwright) as configured — do not produce static, hardcoded search or web-scraping code. Use provided MCP tools and cache/limit usage.
+
+Use dynamic prompt files (agents_prompts/*.md). Do not bake prompts into code; load prompts at startup.
+
+Wire tools (rag_tool, tavily_tool, db_tool) as typed functions and register them to Agents SDK as tools.
+
+Register Agents SDK guardrails for input and output validation; log guardrail events to admin logs.
+
+Operational rules (Cursor must enforce)
+
+Backend-first: Always scaffold and test backend components before starting frontend tasks. Backend must pass CI before frontend scaffolding begins.
+
+No static prompts: All agent prompts must live in agents_prompts/ and be editable. Cursor must create prompt templates and sample Six-Part prompts for each agent. Do not generate prompts inline in the code.
+
+MCP-first policy: When external knowledge/search is required in generated code, wire the tutor agent to call tavily_tool (MCP) rather than embedding search code in the agent. Provide fallback behavior when MCP calls fail. Use Context7 for docs retrieval and Playwright for UI tests where needed.
+
+Dynamic configuration: Expose model, provider, and tool settings via env vars and core/config.py. Cursor must not commit secrets; use .env.example and documentation to instruct secret usage on Render.
+
+Type safety & validation: Generated Python code must include Pydantic models for AgentRequest/AgentResponse and input/output schemas. Include validation and schema-based guardrail checks.
+
+Tests-first: Add unit tests for every agent and tool using mocks for Gemini, Pinecone, and TAVILY. Add integration tests for the GREETING→ASSESSMENT→PLANNING→LEARNING→QUIZ path.
+
+CI/Pre-commit: Add GitHub Actions for tests and linters; add pre-commit hooks: black, isort, flake8, and prettier + eslint for frontend.
+
+Logging & privacy: Log structured JSON (no secrets). Do not store raw user PII in logs. Add agent_logs table for guardrail events.
+
+Cursor execution plan (what Cursor must generate)
+
+init-project scaffold (folders, Dockerfile, docker-compose.yml, .env.example)
+
+startup (core/startup.py): load prompts, init DB, Redis, Pinecone, Tavily client, Gemini provider, and create Agent instances
+
+tools/*: rag_tool, tavily_tool, db_tool (typed with retries, caching, and rate-limits)
+
+agents/*: orchestrator_agent.py, assessment_agent.py (VARK), tutor_agent.py, quiz_agent.py, planning_agent.py, feedback_agent.py — each registered with guardrails
+
+api/v1/*: auth.py, sessions.py, websocket.py (two-stage runner implemented), rag_router.py
+
+frontend-skeleton: Next.js app connecting to WS and REST
+
+tests/*: unit + integration + guardrail tests
+
+ci/*: GitHub Actions YAML
+
+docs/*: prompt templates (Six-Part), README, ARCHITECTURE.md, ADRs
+
+Cursor safety & decision policy
+
+If the prompt lacks clarity, Cursor must make a reasonable choice and document it in an ADR rather than asking the user for many clarifications.
+
+If external credentials are required (Pinecone, Gemini, TAVILY), Cursor must generate placeholders and a README instructing the user how to set them in Render Secrets.
+
+When generating code that calls MCPs or external tools, include retry/backoff and rate limiting wrappers.
+
+Example commit message conventions for Cursor
+
+feat(agents): add assessment_agent with VARK logic and tests
+
+chore(ci): add GitHub Actions for unit tests and linters
+
+fix(startup): handle tavily client init failure gracefully
+
+docs(prompts): add tutor_prompt.md (Six-Part)
+---
