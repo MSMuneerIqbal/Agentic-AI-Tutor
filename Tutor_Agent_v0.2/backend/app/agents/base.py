@@ -83,6 +83,43 @@ class BaseAgent:
 
         return response
 
+    async def execute(self, user_input: str, context: dict[str, Any]) -> dict[str, Any]:
+        """
+        Execute agent logic with input/output validation.
+
+        Args:
+            user_input: User input
+            context: Context dictionary
+
+        Returns:
+            Response dictionary
+        """
+        # Validate input
+        is_valid, error = await self.validate_input(user_input)
+        if not is_valid:
+            return {
+                "agent": self.name,
+                "message": f"Invalid input: {error}",
+                "action": "input_validation_error",
+                "guardrail_violated": True,
+                "violation_reason": error
+            }
+
+        # Execute agent logic
+        try:
+            response = await self._execute(user_input, context)
+            response["agent"] = self.name
+            
+            # Validate output
+            return await self.validate_output(response)
+        except Exception as e:
+            return {
+                "agent": self.name,
+                "message": f"Error: {str(e)}",
+                "action": "execution_error",
+                "error": str(e)
+            }
+
     async def _execute(self, user_input: str, context: dict[str, Any]) -> dict[str, Any]:
         """
         Execute agent logic (to be implemented by subclasses).

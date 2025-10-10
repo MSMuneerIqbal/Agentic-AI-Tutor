@@ -1,7 +1,8 @@
-"""Assessment Agent - Conducts VARK learning style assessment."""
+"""Assessment Agent - Conducts VARK learning style assessment with RAG integration."""
 
 import uuid
-from typing import Any
+import logging
+from typing import Any, Dict, List
 
 from agents import Agent
 
@@ -10,6 +11,7 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.logging import get_logger
 from app.models.assessment import AssessmentResult, LearningStyle
+from app.services.rag_service import get_rag_service
 
 settings = get_settings()
 logger = get_logger(__name__)
@@ -17,10 +19,11 @@ logger = get_logger(__name__)
 
 class AssessmentAgent(BaseAgent):
     """
-    Assessment Agent conducts VARK learning style assessment.
+    Assessment Agent conducts VARK learning style assessment with RAG integration.
 
     Responsibilities:
     - Ask 5-12 questions to determine learning style (Visual, Auditory, Reading, Kinesthetic)
+    - Use RAG content to create domain-specific assessment questions
     - Evaluate responses to identify primary learning preference
     - Store assessment results
     - Provide learning style summary to user
@@ -33,6 +36,7 @@ class AssessmentAgent(BaseAgent):
         self.questions_asked = 0
         self.max_questions = 12
         self.min_questions = 5
+        self.rag_service = None
         
         # VARK assessment questions
         self.questions = [
@@ -201,7 +205,7 @@ Keep questions clear, concise, and engaging. After assessment, provide a brief, 
         return await self._complete_assessment(answers, user_id, session_id)
 
     async def _ask_question(self, question_num: int, answers: list, user_id: str | None, session_id: str | None) -> dict[str, Any]:
-        """Ask a specific question."""
+        """Ask a specific question with optional RAG enhancement."""
         if question_num > len(self.questions):
             # All questions asked, complete assessment
             return await self._complete_assessment(answers, user_id, session_id)
@@ -209,17 +213,50 @@ Keep questions clear, concise, and engaging. After assessment, provide a brief, 
         question_data = self.questions[question_num - 1]
         options_text = "\n".join([f"({key}) {value}" for key, value in question_data["options"].items()])
         
+        # Try to enhance question with RAG content for Docker/Kubernetes context
+        enhanced_message = await self._enhance_question_with_rag(question_data, question_num)
+        
         return {
             "agent": self.name,
-            "message": (
-                f"**Question {question_num}:** {question_data['question']}\n\n"
-                f"{options_text}\n\n"
-                f"Please choose (a), (b), (c), or (d)."
-            ),
+            "message": enhanced_message,
             "action": "collect_answer",
             "question_number": question_num,
             "answers": answers,
         }
+
+    async def _enhance_question_with_rag(self, question_data: Dict[str, Any], question_num: int) -> str:
+        """Enhance assessment question with RAG content for Docker/Kubernetes context."""
+        try:
+            # Initialize RAG service if not already done
+            if self.rag_service is None:
+                self.rag_service = await get_rag_service()
+            
+            # Get RAG content for assessment context
+            rag_content = await self.rag_service.get_assessment_content("learning style assessment")
+            
+            # Add context from RAG content if available
+            rag_context = ""
+            if rag_content.get("rag_content"):
+                rag_context = f"\n\n💡 **Context:** This assessment will help us create a personalized Docker and Kubernetes learning experience for you."
+            
+            # Build enhanced message
+            options_text = "\n".join([f"({key}) {value}" for key, value in question_data["options"].items()])
+            
+            return (
+                f"**Question {question_num}:** {question_data['question']}\n\n"
+                f"{options_text}{rag_context}\n\n"
+                f"Please choose (a), (b), (c), or (d)."
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to enhance question with RAG: {e}")
+            # Fallback to basic question
+            options_text = "\n".join([f"({key}) {value}" for key, value in question_data["options"].items()])
+            return (
+                f"**Question {question_num}:** {question_data['question']}\n\n"
+                f"{options_text}\n\n"
+                f"Please choose (a), (b), (c), or (d)."
+            )
 
     async def _complete_assessment(self, answers: list, user_id: str | None, session_id: str | None) -> dict[str, Any]:
         """Complete the assessment and save results."""

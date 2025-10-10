@@ -5,11 +5,14 @@ description = "Tutor GPT Backend - Agentic tutoring system"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "aiomysql>=0.2.0",
     "aiosqlite>=0.21.0",
     "asyncmy>=0.2.10",
     "fastapi>=0.118.2",
+    "google-generativeai>=0.8.5",
     "httpx>=0.28.1",
     "openai-agents>=0.3.3",
+    "pinecone>=7.3.0",
     "pinecone-client>=6.0.0",
     "playwright>=1.55.0",
     "pydantic>=2.12.0",

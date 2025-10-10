@@ -1,7 +1,8 @@
-"""Planning Agent - Creates personalized study plans based on learning style assessment."""
+"""Planning Agent - Creates personalized study plans based on learning style assessment with RAG integration."""
 
 import uuid
-from typing import Any
+import logging
+from typing import Any, Dict, List
 
 from agents import Agent
 
@@ -12,6 +13,7 @@ from app.core.logging import get_logger
 from app.models.assessment import LearningStyle
 from app.models.plan import Plan
 from app.services.profile_service import profile_service
+from app.services.rag_service import get_rag_service
 
 settings = get_settings()
 logger = get_logger(__name__)
@@ -19,12 +21,13 @@ logger = get_logger(__name__)
 
 class PlanningAgent(BaseAgent):
     """
-    Planning Agent creates personalized study plans.
+    Planning Agent creates personalized study plans with RAG integration.
 
     Responsibilities:
     - Analyze user's learning style assessment
     - Gather user goals and preferences
-    - Generate personalized study plan structure
+    - Use RAG content to create comprehensive study plans
+    - Generate personalized study plan structure based on Docker/Kubernetes content
     - Create learning milestones and checkpoints
     - Adapt plan based on learning style (VARK)
     """
@@ -33,39 +36,47 @@ class PlanningAgent(BaseAgent):
         """Initialize Planning Agent."""
         super().__init__(name="Planning", model=settings.gemini_model)
         self.agent = self._create_agent()
+        self.rag_service = None
 
     def _create_agent(self) -> Agent:
         """Create OpenAI Agents SDK agent."""
         return Agent(
             name="Planning",
             model=self.model,
-            instructions="""You are the Planning Agent for an AI tutoring system.
+            instructions="""You are the Planning Agent for an AI tutoring system specializing in Docker and Kubernetes.
 
-Your role is to create personalized study plans based on the user's learning style assessment.
+Your role is to create personalized study plans based on the user's learning style assessment and available content.
 
 Learning Style Adaptations:
-- V (Visual): Use diagrams, charts, visual aids, mind maps, infographics
-- A (Auditory): Use discussions, audio content, verbal explanations, group work
-- R (Reading/Writing): Use detailed text, note-taking, written exercises, documentation
-- K (Kinesthetic): Use hands-on practice, real examples, interactive exercises, projects
+- V (Visual): Use diagrams, charts, visual aids, mind maps, infographics, ASCII art
+- A (Auditory): Use discussions, audio content, verbal explanations, group work, storytelling
+- R (Reading/Writing): Use detailed text, note-taking, written exercises, documentation, research
+- K (Kinesthetic): Use hands-on practice, real examples, interactive exercises, projects, commands
 
 Planning Process:
 1. Analyze the user's learning style from their assessment
-2. Ask about their learning goals and interests
+2. Ask about their learning goals and interests in Docker/Kubernetes
 3. Determine their time commitment and availability
-4. Create a structured study plan with topics and milestones
+4. Use RAG content to create a structured study plan with topics and milestones
 5. Adapt the plan format to their learning style
 6. Set realistic timelines and checkpoints
 
-Plan Structure:
-- Main topics with subtopics
+Plan Structure (Docker/Kubernetes Focus):
+- Main topics: Fundamentals, Core Concepts, Advanced Topics, Best Practices
 - Learning objectives for each topic
 - Suggested activities based on learning style
 - Estimated time for each topic
 - Milestones and progress checkpoints
 - Review and assessment points
+- Real-world projects and examples
 
-Keep plans practical, achievable, and personalized to the user's learning style.""",
+Available Content:
+- Docker and Kubernetes book content via RAG
+- Structured learning paths and curriculum
+- Best practices and real-world examples
+- Troubleshooting guides and common issues
+
+Keep plans practical, achievable, and personalized to the user's learning style while leveraging available Docker/Kubernetes content.""",
         )
 
     async def _execute(self, user_input: str, context: dict[str, Any]) -> dict[str, Any]:
@@ -188,13 +199,28 @@ Keep plans practical, achievable, and personalized to the user's learning style.
         learning_style: str, 
         context: dict[str, Any]
     ) -> dict[str, Any]:
-        """Generate the personalized study plan."""
+        """Generate the personalized study plan using RAG content."""
         goals = context.get("goals", "")
         interests = context.get("interests", "")
         time_commitment = user_input
         
-        # Generate plan structure based on learning style
-        plan_structure = self._create_plan_structure(learning_style, goals, interests, time_commitment)
+        try:
+            # Initialize RAG service if not already done
+            if self.rag_service is None:
+                self.rag_service = await get_rag_service()
+            
+            # Get RAG content for planning
+            rag_content = await self.rag_service.get_planning_content(goals, interests)
+            
+            # Generate plan structure based on learning style and RAG content
+            plan_structure = await self._create_plan_structure_with_rag(
+                learning_style, goals, interests, time_commitment, rag_content
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to get RAG content for planning: {e}")
+            # Fallback to basic plan structure
+            plan_structure = self._create_plan_structure(learning_style, goals, interests, time_commitment)
         
         # Save plan to database
         user_id = context.get("user_id")
@@ -239,6 +265,69 @@ Keep plans practical, achievable, and personalized to the user's learning style.
             "next_state": "tutoring",
         }
 
+    async def _create_plan_structure_with_rag(
+        self, 
+        learning_style: str, 
+        goals: str, 
+        interests: str, 
+        time_commitment: str,
+        rag_content: Dict[str, Any]
+    ) -> dict[str, Any]:
+        """Create structured study plan based on inputs and RAG content."""
+        # Extract RAG content
+        rag_topics = rag_content.get("rag_content", [])
+        
+        # Create enhanced topics based on RAG content
+        topics = []
+        
+        # Topic 1: Fundamentals (always first)
+        topics.append({
+            "id": "topic_1",
+            "title": "Docker & Kubernetes Fundamentals",
+            "description": "Basic concepts, terminology, and core principles",
+            "estimated_hours": 4,
+            "activities": self._get_style_activities(learning_style, "fundamentals"),
+            "milestones": ["Understand basic concepts", "Complete practice exercises"],
+            "rag_content": [content for content in rag_topics if "fundamental" in content.get("content", "").lower()][:2]
+        })
+        
+        # Topic 2: Core Concepts (based on RAG content)
+        topics.append({
+            "id": "topic_2", 
+            "title": "Core Concepts and Applications",
+            "description": "Main principles and real-world applications from our resources",
+            "estimated_hours": 6,
+            "activities": self._get_style_activities(learning_style, "applications"),
+            "milestones": ["Apply concepts to examples", "Complete project"],
+            "rag_content": [content for content in rag_topics if "application" in content.get("content", "").lower()][:2]
+        })
+        
+        # Topic 3: Advanced Topics (based on RAG content)
+        topics.append({
+            "id": "topic_3",
+            "title": "Advanced Topics and Best Practices",
+            "description": "Complex scenarios, advanced techniques, and best practices",
+            "estimated_hours": 8,
+            "activities": self._get_style_activities(learning_style, "advanced"),
+            "milestones": ["Master advanced concepts", "Complete final project"],
+            "rag_content": [content for content in rag_topics if "advanced" in content.get("content", "").lower()][:2]
+        })
+        
+        # Add RAG-informed summary
+        rag_summary = ""
+        if rag_topics:
+            rag_summary = f" This plan is based on comprehensive Docker and Kubernetes resources including {len(rag_topics)} relevant content pieces."
+        
+        summary = f"Personalized study plan for {goals} using {self._get_style_name(learning_style).lower()} learning approach.{rag_summary} Estimated total time: {sum(topic['estimated_hours'] for topic in topics)} hours."
+        
+        return {
+            "summary": summary,
+            "topics": topics,
+            "learning_style": learning_style,
+            "total_hours": sum(topic["estimated_hours"] for topic in topics),
+            "rag_content_used": len(rag_topics)
+        }
+
     def _create_plan_structure(
         self, 
         learning_style: str, 
@@ -246,7 +335,7 @@ Keep plans practical, achievable, and personalized to the user's learning style.
         interests: str, 
         time_commitment: str
     ) -> dict[str, Any]:
-        """Create structured study plan based on inputs."""
+        """Create structured study plan based on inputs (fallback method)."""
         # This is a simplified plan generator
         # In production, this would use the LLM to generate more sophisticated plans
         

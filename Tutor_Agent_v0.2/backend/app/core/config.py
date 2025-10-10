@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     pinecone_env: str
     pinecone_index_name: str = "tutor-gpt"
 
+    # Tavily MCP Configuration
+    tavily_api_key: Optional[str] = None
+
     # Application Configuration
     secret_key: str
     port: int = 8000
