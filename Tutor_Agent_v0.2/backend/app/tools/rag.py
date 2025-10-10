@@ -12,6 +12,7 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 # Import will be done inside the class to handle missing dependencies gracefully
 from app.core.config import get_settings
+from app.core.gemini_manager import get_gemini_manager
 
 logger = logging.getLogger(__name__)
 
@@ -95,12 +96,27 @@ class RAGTool:
             self.embedding_model = None
     
     async def generate_embedding(self, text: str) -> List[float]:
-        """Generate embedding for text using Gemini"""
+        """Generate embedding for text using Gemini with failover"""
         try:
-            # For now, we'll use a placeholder embedding
-            # In production, you'd call the actual Gemini embedding API
+            # Use the new Gemini manager with failover
+            gemini_manager = get_gemini_manager()
+            embedding = await gemini_manager.generate_embedding_with_failover(text)
+            
+            if embedding:
+                logger.info(f"Generated embedding for text: {text[:50]}...")
+                return embedding
+            else:
+                logger.warning("Failed to generate embedding with Gemini manager, using mock")
+                return self._get_mock_embedding(text)
+                
+        except Exception as e:
+            logger.error(f"Error generating embedding: {e}")
+            return self._get_mock_embedding(text)
+    
+    def _get_mock_embedding(self, text: str) -> List[float]:
+        """Generate a mock embedding for fallback purposes"""
+        try:
             import hashlib
-            import struct
             
             # Create a deterministic embedding based on text hash
             text_hash = hashlib.md5(text.encode()).hexdigest()
@@ -114,11 +130,13 @@ class RAGTool:
                 embedding.append(0.0)
             embedding = embedding[:768]
             
+            logger.info(f"Generated mock embedding for text: {text[:50]}...")
             return embedding
             
         except Exception as e:
-            logger.error(f"Failed to generate embedding: {e}")
-            raise
+            logger.error(f"Error generating mock embedding: {e}")
+            # Return a zero vector as fallback
+            return [0.0] * 768
     
     async def query_content(
         self, 

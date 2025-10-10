@@ -8,6 +8,7 @@ from agents import Agent
 from app.agents.base import BaseAgent
 from app.core.config import get_settings
 from app.services.rag_service import get_rag_service
+from app.core.gemini_manager import get_gemini_manager
 
 logger = logging.getLogger(__name__)
 settings = get_settings()

@@ -11,6 +11,7 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 # Import will be done inside the class to handle missing dependencies gracefully
 from app.core.config import get_settings
+from app.core.gemini_manager import get_gemini_manager
 
 logger = logging.getLogger(__name__)
 
