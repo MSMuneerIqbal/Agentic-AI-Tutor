@@ -25,7 +25,7 @@ export function LoginModal({ onClose, onSwitchToRegister }: LoginModalProps) {
     setIsLoading(true)
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/login`, {
+      const response = await fetch('http://localhost:8000/api/v1/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -38,6 +38,8 @@ export function LoginModal({ onClose, onSwitchToRegister }: LoginModalProps) {
         setUser(userData.user)
         toast.success('Welcome back!')
         onClose()
+        // Navigate to dashboard
+        window.location.href = '/dashboard'
       } else {
         const error = await response.json()
         toast.error(error.detail || 'Login failed')

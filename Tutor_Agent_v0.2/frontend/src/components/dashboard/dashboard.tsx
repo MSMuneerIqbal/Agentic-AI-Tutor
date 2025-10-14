@@ -14,7 +14,8 @@ import {
   FireIcon,
   TrophyIcon,
   ClockIcon,
-  BookOpenIcon
+  BookOpenIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline'
 import { useApp } from '@/components/providers'
 import { Sidebar } from '@/components/dashboard/sidebar'
@@ -27,16 +28,63 @@ import { QuickActions } from '@/components/dashboard/quick-actions'
 import { ChatInterface } from '@/components/chat/chat-interface'
 
 export function Dashboard() {
-  const { user, session } = useApp()
+  const { user, session, setUser } = useApp()
   const [activeTab, setActiveTab] = useState('overview')
   const [showChat, setShowChat] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Redirect to landing page if not logged in
+  // Check user authentication with loading state
   useEffect(() => {
-    if (!user) {
-      window.location.href = '/'
+    const checkAuth = () => {
+      const savedUser = localStorage.getItem('tutor-gpt-user') || sessionStorage.getItem('tutor-gpt-user')
+      
+      if (savedUser) {
+        try {
+          const userData = JSON.parse(savedUser)
+          if (!user) {
+            setUser(userData)
+          }
+          // Ensure both storages have the data
+          localStorage.setItem('tutor-gpt-user', savedUser)
+          sessionStorage.setItem('tutor-gpt-user', savedUser)
+          setIsLoading(false)
+          return true
+        } catch (error) {
+          console.error('Error parsing user data:', error)
+          localStorage.removeItem('tutor-gpt-user')
+          sessionStorage.removeItem('tutor-gpt-user')
+          return false
+        }
+      } else if (user) {
+        setIsLoading(false)
+        return true
+      } else {
+        return false
+      }
     }
-  }, [user])
+
+    const isAuth = checkAuth()
+    
+    if (!isAuth) {
+      const timeoutId = setTimeout(() => {
+        window.location.href = '/'
+      }, 500)
+      
+      return () => clearTimeout(timeoutId)
+    }
+  }, [user, setUser])
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading your dashboard...</p>
+        </div>
+      </div>
+    )
+  }
 
   if (!user) {
     return null
@@ -57,12 +105,12 @@ export function Dashboard() {
           <div className="space-y-6">
             <StatsCards user={user} session={session} />
             <div className="grid lg:grid-cols-2 gap-6">
-              <LearningProgress user={user} />
+              <LearningProgress user={user} onTabChange={setActiveTab} />
               <RecentActivity user={user} />
             </div>
             <div className="grid lg:grid-cols-2 gap-6">
               <StudyGroups user={user} />
-              <QuickActions user={user} />
+              <QuickActions user={user} onTabChange={setActiveTab} />
             </div>
           </div>
         )
@@ -125,7 +173,13 @@ export function Dashboard() {
                       <span>{group.members} members</span>
                       <span className="badge badge-secondary">{group.level}</span>
                     </div>
-                    <button className="btn-primary w-full mt-3 text-sm">
+                    <button 
+                      onClick={() => {
+                        // TODO: Implement actual join group functionality
+                        alert(`Joining ${group.name}...`)
+                      }}
+                      className="btn-primary w-full mt-3 text-sm"
+                    >
                       Join Group
                     </button>
                   </div>
@@ -163,7 +217,15 @@ export function Dashboard() {
                     <option value="K">Kinesthetic</option>
                   </select>
                 </div>
-                <button className="btn-primary">Save Changes</button>
+                <button 
+                  onClick={() => {
+                    // TODO: Implement actual save functionality
+                    alert('Settings saved!')
+                  }}
+                  className="btn-primary"
+                >
+                  Save Changes
+                </button>
               </div>
             </div>
           </div>

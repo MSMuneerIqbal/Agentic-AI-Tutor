@@ -6,7 +6,7 @@ import {
   ClockIcon, 
   TrophyIcon, 
   FireIcon,
-  TrendingUpIcon,
+  ChartBarIcon,
   BookOpenIcon
 } from '@heroicons/react/24/outline'
 
@@ -16,30 +16,33 @@ interface StatsCardsProps {
 }
 
 export function StatsCards({ user, session }: StatsCardsProps) {
+  // Real data for new students - start fresh
+  const isNewUser = !user?.learningStreak && !user?.totalStudyTime && !user?.achievements
+  
   const stats = [
     {
       name: 'Learning Streak',
-      value: '7 days',
-      change: '+2 days',
-      changeType: 'positive',
+      value: user?.learningStreak || '0 days',
+      change: isNewUser ? 'Start your journey!' : '+1 day',
+      changeType: isNewUser ? 'neutral' : 'positive',
       icon: FireIcon,
       color: 'text-warning-600',
       bgColor: 'bg-warning-100',
     },
     {
       name: 'Study Time',
-      value: '24h 30m',
-      change: '+3h 15m',
-      changeType: 'positive',
+      value: user?.totalStudyTime || '0h 0m',
+      change: isNewUser ? 'Begin learning' : '+30m today',
+      changeType: isNewUser ? 'neutral' : 'positive',
       icon: ClockIcon,
       color: 'text-primary-600',
       bgColor: 'bg-primary-100',
     },
     {
       name: 'Achievements',
-      value: '12',
-      change: '+3 this week',
-      changeType: 'positive',
+      value: user?.achievements || '0',
+      change: isNewUser ? 'Earn your first badge!' : '+1 this week',
+      changeType: isNewUser ? 'neutral' : 'positive',
       icon: TrophyIcon,
       color: 'text-success-600',
       bgColor: 'bg-success-100',
@@ -47,9 +50,9 @@ export function StatsCards({ user, session }: StatsCardsProps) {
     {
       name: 'Progress',
       value: `${user?.progress || 0}%`,
-      change: '+5% this week',
-      changeType: 'positive',
-      icon: TrendingUpIcon,
+      change: isNewUser ? 'Complete your first lesson' : '+2% this week',
+      changeType: isNewUser ? 'neutral' : 'positive',
+      icon: ChartBarIcon,
       color: 'text-accent-600',
       bgColor: 'bg-accent-100',
     },
@@ -73,7 +76,8 @@ export function StatsCards({ user, session }: StatsCardsProps) {
                 <p className="text-sm font-medium text-gray-600">{stat.name}</p>
                 <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
                 <p className={`text-sm mt-1 ${
-                  stat.changeType === 'positive' ? 'text-success-600' : 'text-error-600'
+                  stat.changeType === 'positive' ? 'text-success-600' : 
+                  stat.changeType === 'neutral' ? 'text-gray-600' : 'text-error-600'
                 }`}>
                   {stat.change}
                 </p>

@@ -62,7 +62,7 @@ async def get_user_plans(
     Returns list of study plans for the specified user.
     """
     try:
-        plans = await plan_service.get_user_plans(user_id, limit, db)
+        plans = await plan_service.get_user_plans(user_id, limit)
         
         logger.info(f"Retrieved {len(plans)} plans for user: {user_id}")
         
@@ -84,7 +84,7 @@ async def get_latest_plan(
     Returns the most recent study plan for the specified user.
     """
     try:
-        plan = await plan_service.get_latest_plan(user_id, db)
+        plan = await plan_service.get_latest_plan(user_id)
         
         if not plan:
             raise HTTPException(status_code=404, detail="No study plan found")
@@ -111,7 +111,7 @@ async def get_plan_by_id(
     Returns the study plan with the specified ID.
     """
     try:
-        plan = await plan_service.get_plan_by_id(plan_id, db)
+        plan = await plan_service.get_plan_by_id(plan_id)
         
         if not plan:
             raise HTTPException(status_code=404, detail="Plan not found")
@@ -142,8 +142,7 @@ async def update_plan_progress(
         success = await plan_service.update_plan_progress(
             plan_id, 
             request.topic_id, 
-            request.progress_data, 
-            db
+            request.progress_data
         )
         
         if not success:
@@ -170,7 +169,7 @@ async def get_plan_statistics(
     Returns aggregated statistics about study plans across all users.
     """
     try:
-        stats = await plan_service.get_plan_statistics(db)
+        stats = await plan_service.get_plan_stats()
         
         logger.info(f"Retrieved plan statistics: {stats['total_plans']} total plans")
         
@@ -193,7 +192,7 @@ async def delete_plan(
     Deletes the specified study plan for the user.
     """
     try:
-        success = await plan_service.delete_plan(plan_id, user_id, db)
+        success = await plan_service.delete_plan(plan_id, user_id)
         
         if not success:
             raise HTTPException(status_code=404, detail="Plan not found or access denied")

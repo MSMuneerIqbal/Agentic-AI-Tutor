@@ -54,7 +54,7 @@ def check_dependencies():
     
     # Check Node.js and npm
     try:
-        result = subprocess.run(['node', '--version'], capture_output=True, text=True)
+        result = subprocess.run(['node', '--version'], capture_output=True, text=True, shell=True)
         if result.returncode == 0:
             print(f"   ✅ Node.js {result.stdout.strip()}")
         else:
@@ -65,7 +65,7 @@ def check_dependencies():
         return False
     
     try:
-        result = subprocess.run(['npm', '--version'], capture_output=True, text=True)
+        result = subprocess.run(['npm', '--version'], capture_output=True, text=True, shell=True)
         if result.returncode == 0:
             print(f"   ✅ npm {result.stdout.strip()}")
         else:
@@ -168,7 +168,8 @@ def start_backend():
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             universal_newlines=True,
-            bufsize=1
+            bufsize=1,
+            shell=True
         )
         
         print("   ✅ Backend server starting on http://localhost:8000")
@@ -194,7 +195,7 @@ def start_frontend():
     if not node_modules.exists():
         print("   📦 Installing frontend dependencies...")
         try:
-            subprocess.run(["npm", "install"], check=True)
+            subprocess.run(["npm", "install"], check=True, shell=True)
             print("   ✅ Dependencies installed")
         except subprocess.CalledProcessError as e:
             print(f"   ❌ Failed to install dependencies: {e}")
@@ -209,7 +210,8 @@ def start_frontend():
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             universal_newlines=True,
-            bufsize=1
+            bufsize=1,
+            shell=True
         )
         
         print("   ✅ Frontend server starting on http://localhost:3000")

@@ -45,7 +45,7 @@ class TavilyMCPClient:
             import httpx
             self.client = httpx.AsyncClient(timeout=30.0)
         except ImportError:
-            logger.warning("httpx not available, using mock mode")
+            logger.error("httpx not available - Tavily integration requires httpx")
             self.client = None
         
         self._validate_config()
@@ -53,7 +53,7 @@ class TavilyMCPClient:
     def _validate_config(self):
         """Validate Tavily configuration"""
         if not self.api_key or self.client is None:
-            logger.warning("Tavily API key not configured or httpx not available. Using mock responses.")
+            logger.error("Tavily API key not configured or httpx not available. Tavily integration disabled.")
         else:
             logger.info("Tavily MCP client initialized successfully")
     
@@ -76,7 +76,7 @@ class TavilyMCPClient:
         """
         try:
             if not self.api_key or self.client is None:
-                return await self._get_mock_examples(topic, max_results)
+                raise Exception("Tavily API key not configured or httpx not available. Please configure Tavily API key.")
             
             # Construct search query
             query = f"{context} {topic} examples tutorial guide"

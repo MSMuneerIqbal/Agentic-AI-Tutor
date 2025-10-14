@@ -27,94 +27,85 @@ interface ChatInterfaceProps {
 }
 
 export function ChatInterface({ user }: ChatInterfaceProps) {
-  const { socket, isConnected } = useApp()
+  const { websocket, isConnected } = useApp()
   const [messages, setMessages] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [currentAgent, setCurrentAgent] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
 
-  const agents = [
-    { id: 'orchestrator', name: 'Orchestrator', avatar: '🎭', color: 'bg-purple-100 text-purple-600' },
-    { id: 'tutor', name: 'Olivia (Tutor)', avatar: '🎓', color: 'bg-blue-100 text-blue-600' },
-    { id: 'planning', name: 'Alex (Planning)', avatar: '📋', color: 'bg-green-100 text-green-600' },
-    { id: 'assessment', name: 'Sam (Assessment)', avatar: '🧠', color: 'bg-yellow-100 text-yellow-600' },
-    { id: 'quiz', name: 'Max (Quiz)', avatar: '📝', color: 'bg-red-100 text-red-600' },
-    { id: 'feedback', name: 'Dr. Smith (Feedback)', avatar: '📊', color: 'bg-indigo-100 text-indigo-600' },
-  ]
-
-  useEffect(() => {
-    if (socket) {
-      // Listen for messages from agents
-      socket.on('agent_message', (data: any) => {
-        const newMessage: Message = {
-          id: Date.now().toString(),
-          content: data.content,
-          sender: 'agent',
-          agentName: data.agent_name,
-          timestamp: new Date(),
-          type: 'text',
-          metadata: data.metadata,
-        }
-        setMessages(prev => [...prev, newMessage])
-        setIsTyping(false)
-      })
-
-      // Listen for agent typing indicators
-      socket.on('agent_typing', (data: any) => {
-        setCurrentAgent(data.agent_name)
-        setIsTyping(true)
-      })
-
-      // Listen for agent handoffs
-      socket.on('agent_handoff', (data: any) => {
-        const systemMessage: Message = {
-          id: Date.now().toString(),
-          content: `Handing off to ${data.to_agent}...`,
-          sender: 'agent',
-          agentName: data.from_agent,
-          timestamp: new Date(),
-          type: 'system',
-        }
-        setMessages(prev => [...prev, systemMessage])
-      })
-
-      // Listen for session updates
-      socket.on('session_update', (data: any) => {
-        const systemMessage: Message = {
-          id: Date.now().toString(),
-          content: `Session state updated: ${data.state}`,
-          sender: 'agent',
-          agentName: 'System',
-          timestamp: new Date(),
-          type: 'system',
-        }
-        setMessages(prev => [...prev, systemMessage])
-      })
-
-      return () => {
-        socket.off('agent_message')
-        socket.off('agent_typing')
-        socket.off('agent_handoff')
-        socket.off('session_update')
-      }
-    }
-  }, [socket])
+  // Scroll to bottom when new messages arrive
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
 
   useEffect(() => {
     scrollToBottom()
   }, [messages])
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
+  // Add welcome message when component mounts
+  useEffect(() => {
+    if (messages.length === 0) {
+      const welcomeMessage: Message = {
+        id: 'welcome',
+        content: `Welcome to Tutor GPT, ${user?.name || 'Student'}! I'm your AI teacher and I'm here to guide you through mastering Docker and Kubernetes. I can explain concepts, provide hands-on exercises, assess your progress, and help you build real-world projects. What would you like to learn first?`,
+        sender: 'agent',
+        agentName: 'AI Teacher',
+        timestamp: new Date(),
+        type: 'text'
+      }
+      setMessages([welcomeMessage])
+    }
+  }, [user, messages.length])
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!inputMessage.trim() || !socket || !isConnected) {
-      toast.error('Unable to send message. Please check your connection.')
+  // WebSocket message handler for real AI responses
+  useEffect(() => {
+    if (websocket) {
+      const handleMessage = (event: MessageEvent) => {
+        try {
+          const data = JSON.parse(event.data)
+          console.log('Received WebSocket message:', data)
+          
+          if (data.type === 'agent_message') {
+            const agentMessage: Message = {
+              id: Date.now().toString(),
+              content: data.text,
+              sender: 'agent',
+              agentName: data.agent === 'orchestrator' ? 'AI Teacher' : data.agent,
+              timestamp: new Date(data.timestamp),
+              type: 'text'
+            }
+            setMessages(prev => [...prev, agentMessage])
+            setIsTyping(false)
+          } else if (data.type === 'error') {
+            const errorMessage: Message = {
+              id: Date.now().toString(),
+              content: data.message || 'An error occurred with the AI tutor.',
+              sender: 'agent',
+              agentName: 'System',
+              timestamp: new Date(),
+              type: 'text'
+            }
+            setMessages(prev => [...prev, errorMessage])
+            setIsTyping(false)
+          }
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error)
+          setIsTyping(false)
+        }
+      }
+
+      websocket.addEventListener('message', handleMessage)
+      
+      return () => {
+        websocket.removeEventListener('message', handleMessage)
+      }
+    }
+  }, [websocket])
+
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim() || !websocket || websocket.readyState !== WebSocket.OPEN) {
+      toast.error('Connection not available')
       return
     }
 
@@ -123,174 +114,131 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
       content: inputMessage,
       sender: 'user',
       timestamp: new Date(),
-      type: 'text',
+      type: 'text'
     }
 
     setMessages(prev => [...prev, userMessage])
     setInputMessage('')
+    setIsTyping(true)
 
-    // Send message to backend
     try {
-      socket.emit('user_message', {
-        content: inputMessage,
-        user_id: user.id,
-        session_id: user.session_id,
-      })
+      // Send message via WebSocket
+      websocket.send(JSON.stringify({
+        message: inputMessage,
+        type: 'user_message',
+        timestamp: new Date().toISOString(),
+        user_id: user?.id
+      }))
+
+      // Real AI responses will come via WebSocket message handler
+      // No simulated response needed - the backend provides real AI responses
+
     } catch (error) {
       console.error('Error sending message:', error)
       toast.error('Failed to send message')
+      setIsTyping(false)
     }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      handleSendMessage(e)
+      handleSendMessage()
     }
   }
 
-  const formatMessage = (content: string) => {
-    // Simple markdown-like formatting
-    return content
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/`(.*?)`/g, '<code class="bg-gray-100 px-1 py-0.5 rounded text-sm">$1</code>')
-      .replace(/\n/g, '<br>')
-  }
-
-  const getAgentInfo = (agentName?: string) => {
-    return agents.find(agent => agent.name === agentName) || agents[0]
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
 
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* Chat Header */}
+      {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-            <CpuChipIcon className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 bg-primary-600 rounded-full flex items-center justify-center">
+            <SparklesIcon className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900">AI Learning Chat</h3>
+            <h3 className="font-semibold text-gray-900">AI Tutor</h3>
             <div className="flex items-center space-x-2">
-              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-success-500' : 'bg-error-500'}`}></div>
-              <span className="text-sm text-gray-600">
+              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+              <span className="text-sm text-gray-500">
                 {isConnected ? 'Connected' : 'Disconnected'}
               </span>
             </div>
           </div>
         </div>
-        
-        {currentAgent && (
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <SparklesIcon className="w-4 h-4 animate-pulse" />
-            <span>{currentAgent} is typing...</span>
-          </div>
-        )}
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 && (
-          <div className="text-center py-8">
-            <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CpuChipIcon className="w-8 h-8 text-primary-600" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Welcome to Tutor GPT!
-            </h3>
-            <p className="text-gray-600 mb-4">
-              Start a conversation with your AI tutors. Ask questions, request lessons, or get help with Docker and Kubernetes.
-            </p>
-            <div className="flex flex-wrap gap-2 justify-center">
-              {['Hello!', 'Start learning', 'Help me with Docker', 'Take assessment'].map((suggestion) => (
-                <button
-                  key={suggestion}
-                  onClick={() => setInputMessage(suggestion)}
-                  className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-sm text-gray-700 transition-colors"
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         <AnimatePresence>
-          {messages.map((message) => {
-            const agentInfo = getAgentInfo(message.agentName)
-            
-            return (
-              <motion.div
-                key={message.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div className={`flex max-w-[80%] ${message.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                  {/* Avatar */}
-                  <div className={`flex-shrink-0 ${message.sender === 'user' ? 'ml-3' : 'mr-3'}`}>
-                    {message.sender === 'user' ? (
-                      <div className="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center">
-                        <UserIcon className="w-5 h-5 text-white" />
-                      </div>
-                    ) : (
-                      <div className={`w-8 h-8 ${agentInfo.color} rounded-full flex items-center justify-center`}>
-                        <span className="text-sm">{agentInfo.avatar}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Message Content */}
-                  <div className={`flex flex-col ${message.sender === 'user' ? 'items-end' : 'items-start'}`}>
-                    {message.sender === 'agent' && message.agentName && (
-                      <span className="text-xs text-gray-500 mb-1">{message.agentName}</span>
-                    )}
-                    
-                    <div className={`px-4 py-2 rounded-2xl ${
-                      message.sender === 'user'
-                        ? 'bg-primary-600 text-white'
-                        : message.type === 'system'
-                        ? 'bg-gray-100 text-gray-700'
-                        : 'bg-gray-100 text-gray-900'
-                    }`}>
-                      {message.type === 'text' ? (
-                        <div 
-                          className="prose prose-sm max-w-none"
-                          dangerouslySetInnerHTML={{ __html: formatMessage(message.content) }}
-                        />
-                      ) : (
-                        <p>{message.content}</p>
-                      )}
+          {messages.map((message) => (
+            <motion.div
+              key={message.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              <div className={`flex max-w-[80%] ${message.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  message.sender === 'user' 
+                    ? 'bg-primary-600 ml-3' 
+                    : 'bg-gray-600 mr-3'
+                }`}>
+                  {message.sender === 'user' ? (
+                    <UserIcon className="w-4 h-4 text-white" />
+                  ) : (
+                    <CpuChipIcon className="w-4 h-4 text-white" />
+                  )}
+                </div>
+                <div className={`px-4 py-2 rounded-2xl ${
+                  message.sender === 'user'
+                    ? 'bg-primary-600 text-white'
+                    : message.type === 'system'
+                    ? 'bg-yellow-100 text-yellow-800'
+                    : 'bg-gray-100 text-gray-900'
+                }`}>
+                  {message.agentName && message.sender === 'agent' && (
+                    <div className="text-xs font-medium mb-1 opacity-75">
+                      {message.agentName}
                     </div>
-                    
-                    <span className="text-xs text-gray-500 mt-1">
-                      {message.timestamp.toLocaleTimeString()}
-                    </span>
+                  )}
+                  <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+                  <div className={`text-xs mt-1 ${
+                    message.sender === 'user' ? 'text-primary-100' : 'text-gray-500'
+                  }`}>
+                    {formatTime(message.timestamp)}
                   </div>
                 </div>
-              </motion.div>
-            )
-          })}
+              </div>
+            </motion.div>
+          ))}
         </AnimatePresence>
 
-        {/* Typing Indicator */}
+        {/* Typing indicator */}
         {isTyping && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="flex justify-start"
           >
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                <span className="text-sm">🤖</span>
+            <div className="flex max-w-[80%]">
+              <div className="w-8 h-8 rounded-full bg-gray-600 mr-3 flex items-center justify-center">
+                <CpuChipIcon className="w-4 h-4 text-white" />
               </div>
-              <div className="bg-gray-100 px-4 py-2 rounded-2xl">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+              <div className="px-4 py-2 rounded-2xl bg-gray-100 text-gray-900">
+                <div className="flex items-center space-x-1">
+                  <div className="flex space-x-1">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                  </div>
+                  <span className="text-sm text-gray-500 ml-2">
+                    {currentAgent || 'AI Tutor'} is typing...
+                  </span>
                 </div>
               </div>
             </div>
@@ -302,31 +250,26 @@ export function ChatInterface({ user }: ChatInterfaceProps) {
 
       {/* Input */}
       <div className="p-4 border-t border-gray-200">
-        <form onSubmit={handleSendMessage} className="flex items-center space-x-3">
-          <input
-            ref={inputRef}
-            type="text"
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Ask your AI tutors anything..."
-            className="flex-1 input"
-            disabled={!isConnected}
-          />
+        <div className="flex items-end space-x-3">
+          <div className="flex-1">
+            <textarea
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Ask me anything about Docker or Kubernetes..."
+              className="w-full px-4 py-3 border border-gray-300 rounded-2xl resize-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              rows={1}
+              style={{ minHeight: '44px', maxHeight: '120px' }}
+            />
+          </div>
           <button
-            type="submit"
+            onClick={handleSendMessage}
             disabled={!inputMessage.trim() || !isConnected}
-            className="btn-primary p-2"
+            className="p-3 bg-primary-600 text-white rounded-2xl hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
           >
             <PaperAirplaneIcon className="w-5 h-5" />
           </button>
-        </form>
-        
-        {!isConnected && (
-          <p className="text-sm text-error-600 mt-2">
-            Connection lost. Please refresh the page to reconnect.
-          </p>
-        )}
+        </div>
       </div>
     </div>
   )

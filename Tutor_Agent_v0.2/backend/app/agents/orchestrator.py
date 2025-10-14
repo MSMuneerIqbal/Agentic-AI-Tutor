@@ -240,6 +240,15 @@ Available Advanced Tools:
             Response dictionary with message and next actions
         """
         session_state = context.get("state", SessionState.GREETING)
+        
+        # Convert to SessionState enum if it's a string
+        if isinstance(session_state, str):
+            try:
+                session_state = SessionState(session_state)
+            except ValueError:
+                session_state = SessionState.GREETING
+
+        logger.info(f"Orchestrator: user_input='{user_input}', session_state={session_state}, type={type(session_state)}")
 
         # FIRST RUNNER: Initial greeting
         if user_input == "hello" and session_state == SessionState.GREETING:
@@ -321,11 +330,39 @@ Available Advanced Tools:
                 "topic": context.get("topic", "current topic")
             }
 
+        # Handle learning topic requests
+        if any(topic in user_input.lower() for topic in ["docker", "kubernetes", "container", "pod", "service", "deployment"]):
+            return {
+                "agent": self.name,
+                "message": f"Great choice! Let's learn about {user_input}. I'll hand you over to our Tutor Agent who specializes in teaching these concepts.",
+                "action": "handoff_to_tutor",
+                "next_state": SessionState.TUTORING,
+                "topic": user_input
+            }
+        
+        # Handle short confirmations
+        if user_input.lower().strip() in ["ya", "yes", "yep", "ok", "okay", "sure", "yeah"]:
+            if session_state == SessionState.GREETING:
+                return {
+                    "agent": self.name,
+                    "message": "Perfect! Let's begin your learning style assessment to create the best learning experience for you.",
+                    "action": "start_assessment",
+                    "next_state": SessionState.ASSESSING,
+                }
+            else:
+                return {
+                    "agent": self.name,
+                    "message": "Excellent! Let's continue with your learning journey.",
+                    "action": "continue",
+                }
+
         # Default response for other states
         return {
             "agent": self.name,
-            "message": f"I'll help you continue from where we left off. Current state: {session_state}",
-            "action": "continue",
+            "message": f"I understand you want to learn about '{user_input}'. Let me connect you with our expert Tutor Agent who can help you master this topic!",
+            "action": "handoff_to_tutor",
+            "next_state": SessionState.TUTORING,
+            "topic": user_input
         }
 
     async def _handle_topic_skip_request(self, user_input: str, context: Dict[str, Any]) -> Dict[str, Any]:

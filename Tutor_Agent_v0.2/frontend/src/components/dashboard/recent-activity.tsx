@@ -14,48 +14,33 @@ interface RecentActivityProps {
 }
 
 export function RecentActivity({ user }: RecentActivityProps) {
-  const activities = [
+  // Real activities for new students
+  const isNewUser = !user?.activities || user?.activities.length === 0
+  
+  const defaultActivities = [
     {
       id: 1,
-      type: 'lesson',
-      title: 'Completed Docker Container Basics',
-      description: 'Finished lesson on container lifecycle and management',
-      time: '2 hours ago',
+      type: 'welcome',
+      title: 'Welcome to Tutor GPT!',
+      description: 'Your learning journey with Docker and Kubernetes begins now',
+      time: 'Just now',
       icon: AcademicCapIcon,
-      color: 'text-success-600',
-      bgColor: 'bg-success-100',
-    },
-    {
-      id: 2,
-      type: 'chat',
-      title: 'Chat with Olivia (Tutor Agent)',
-      description: 'Asked about Docker networking concepts',
-      time: '4 hours ago',
-      icon: ChatBubbleLeftRightIcon,
       color: 'text-primary-600',
       bgColor: 'bg-primary-100',
     },
     {
-      id: 3,
-      type: 'achievement',
-      title: 'Earned "Container Master" Badge',
-      description: 'Completed 10 Docker lessons successfully',
-      time: '1 day ago',
-      icon: TrophyIcon,
-      color: 'text-warning-600',
-      bgColor: 'bg-warning-100',
-    },
-    {
-      id: 4,
-      type: 'group',
-      title: 'Joined "Docker Beginners" Study Group',
-      description: 'Connected with 24 other learners',
-      time: '2 days ago',
-      icon: UserGroupIcon,
+      id: 2,
+      type: 'tip',
+      title: 'Getting Started Tip',
+      description: 'Start with Docker Fundamentals to build your foundation',
+      time: 'Just now',
+      icon: ChatBubbleLeftRightIcon,
       color: 'text-accent-600',
       bgColor: 'bg-accent-100',
     },
   ]
+  
+  const activities = isNewUser ? defaultActivities : (user?.activities || defaultActivities)
 
   const getActivityIcon = (type: string) => {
     switch (type) {
@@ -67,6 +52,10 @@ export function RecentActivity({ user }: RecentActivityProps) {
         return TrophyIcon
       case 'group':
         return UserGroupIcon
+      case 'welcome':
+        return AcademicCapIcon
+      case 'tip':
+        return ChatBubbleLeftRightIcon
       default:
         return ClockIcon
     }

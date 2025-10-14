@@ -12,9 +12,10 @@ import {
 
 interface QuickActionsProps {
   user: any
+  onTabChange?: (tab: string) => void
 }
 
-export function QuickActions({ user }: QuickActionsProps) {
+export function QuickActions({ user, onTabChange }: QuickActionsProps) {
   const actions = [
     {
       id: 1,
@@ -58,19 +59,19 @@ export function QuickActions({ user }: QuickActionsProps) {
     switch (action) {
       case 'learn':
         // Navigate to learning interface
-        console.log('Start learning')
+        if (onTabChange) onTabChange('learning')
         break
       case 'chat':
         // Open chat interface
-        console.log('Open chat')
+        if (onTabChange) onTabChange('chat')
         break
       case 'groups':
         // Navigate to study groups
-        console.log('Join study group')
+        if (onTabChange) onTabChange('groups')
         break
       case 'progress':
         // Navigate to progress page
-        console.log('View progress')
+        if (onTabChange) onTabChange('overview')
         break
       default:
         break

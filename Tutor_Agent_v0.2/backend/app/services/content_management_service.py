@@ -14,7 +14,7 @@ from enum import Enum
 
 from app.core.database import get_db
 from app.core.redis import get_redis_client
-from app.services.rag import get_rag_tool
+from app.tools.rag import get_rag_tool
 
 logger = logging.getLogger(__name__)
 

@@ -15,7 +15,7 @@ from app.models.user import User
 from app.models.assessment import AssessmentResult
 from app.models.plan import Plan
 from app.models.session import Session
-from app.models.quiz import QuizResult
+from app.models.quiz import QuizAttempt
 from app.models.lesson import Lesson
 from app.models.feedback import Feedback
 

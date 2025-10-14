@@ -5,38 +5,42 @@ import { BookOpenIcon, CheckCircleIcon, ClockIcon } from '@heroicons/react/24/ou
 
 interface LearningProgressProps {
   user: any
+  onTabChange?: (tab: string) => void
 }
 
-export function LearningProgress({ user }: LearningProgressProps) {
+export function LearningProgress({ user, onTabChange }: LearningProgressProps) {
+  // Real data for new students - start from beginning
+  const isNewUser = !user?.completedLessons || user?.completedLessons === 0
+  
   const learningPath = [
     {
       id: 1,
       title: 'Docker Fundamentals',
       description: 'Container basics and Docker commands',
-      progress: 75,
-      status: 'in-progress',
+      progress: user?.dockerProgress || 0,
+      status: user?.dockerProgress > 0 ? 'in-progress' : 'not-started',
       estimatedTime: '2h 30m',
-      completedLessons: 6,
+      completedLessons: user?.dockerLessonsCompleted || 0,
       totalLessons: 8,
     },
     {
       id: 2,
       title: 'Docker Compose',
       description: 'Multi-container applications',
-      progress: 0,
-      status: 'locked',
+      progress: user?.composeProgress || 0,
+      status: user?.dockerProgress >= 100 ? 'not-started' : 'locked',
       estimatedTime: '1h 45m',
-      completedLessons: 0,
+      completedLessons: user?.composeLessonsCompleted || 0,
       totalLessons: 5,
     },
     {
       id: 3,
       title: 'Kubernetes Basics',
       description: 'Pods, services, and deployments',
-      progress: 0,
-      status: 'locked',
+      progress: user?.k8sProgress || 0,
+      status: user?.dockerProgress >= 100 && user?.composeProgress >= 100 ? 'not-started' : 'locked',
       estimatedTime: '3h 15m',
-      completedLessons: 0,
+      completedLessons: user?.k8sLessonsCompleted || 0,
       totalLessons: 10,
     },
   ]
@@ -71,7 +75,10 @@ export function LearningProgress({ user }: LearningProgressProps) {
     <div className="card">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-lg font-semibold text-gray-900">Learning Progress</h2>
-        <button className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+        <button 
+          onClick={() => onTabChange && onTabChange('learning')}
+          className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+        >
           View All
         </button>
       </div>

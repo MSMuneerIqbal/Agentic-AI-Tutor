@@ -22,17 +22,20 @@ class RAGService:
         """Initialize RAG service with tools"""
         self.rag_tool = None
         self.tavily_client = None
-        self._initialize_tools()
+        self._initialized = False
     
-    async def _initialize_tools(self):
-        """Initialize RAG and Tavily tools"""
-        try:
-            self.rag_tool = await get_rag_tool()
-            self.tavily_client = await get_tavily_client()
-            logger.info("RAG Service initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize RAG Service: {e}")
-            raise
+    async def _ensure_initialized(self):
+        """Ensure RAG service is initialized"""
+        if not self._initialized:
+            try:
+                self.rag_tool = await get_rag_tool()
+                self.tavily_client = await get_tavily_client()
+                self._initialized = True
+                logger.info("RAG Service initialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to initialize RAG Service: {e}")
+                # Set to initialized anyway to avoid repeated attempts
+                self._initialized = True
     
     async def get_agent_content(
         self, 
@@ -52,6 +55,8 @@ class RAGService:
             Dictionary containing RAG content and optionally live examples
         """
         try:
+            await self._ensure_initialized()
+            
             result = {
                 "rag_content": [],
                 "live_examples": [],
@@ -59,16 +64,17 @@ class RAGService:
                 "query": query
             }
             
-            # Get RAG content
-            rag_results = await self.rag_tool.query_content(
-                query=query,
-                agent_type=agent_type,
-                max_results=5
-            )
-            result["rag_content"] = [self._format_rag_result(r) for r in rag_results]
+            # Get RAG content if tool is available
+            if self.rag_tool:
+                rag_results = await self.rag_tool.query_content(
+                    query=query,
+                    agent_type=agent_type,
+                    max_results=5
+                )
+                result["rag_content"] = [self._format_rag_result(r) for r in rag_results]
             
-            # Get live examples if requested (mainly for Tutor agent)
-            if include_live_examples and agent_type == "tutor":
+            # Get live examples if requested and tool is available
+            if include_live_examples and agent_type == "tutor" and self.tavily_client:
                 live_examples = await self.tavily_client.search_live_examples(
                     topic=query,
                     context="Docker Kubernetes",
@@ -128,21 +134,31 @@ class RAGService:
     ) -> Dict[str, Any]:
         """Get comprehensive lesson content for Tutor agent"""
         try:
-            # Get RAG content
-            rag_results = await self.rag_tool.get_topic_content(topic, "tutor")
+            await self._ensure_initialized()
             
-            # Get live examples
-            live_examples = await self.tavily_client.search_live_examples(
-                topic=topic,
-                context="Docker Kubernetes",
-                max_results=3
-            )
+            # Get RAG content if tool is available
+            rag_results = []
+            if self.rag_tool:
+                rag_results = await self.rag_tool.get_topic_content(topic, "tutor")
             
-            # Get best practices
-            best_practices = await self.tavily_client.get_current_best_practices(topic)
+            # Get live examples if tool is available
+            live_examples = []
+            if self.tavily_client:
+                live_examples = await self.tavily_client.search_live_examples(
+                    topic=topic,
+                    context="Docker Kubernetes",
+                    max_results=3
+                )
             
-            # Get troubleshooting examples
-            troubleshooting = await self.tavily_client.get_troubleshooting_examples(topic)
+            # Get best practices if tool is available
+            best_practices = []
+            if self.tavily_client:
+                best_practices = await self.tavily_client.get_current_best_practices(topic)
+            
+            # Get troubleshooting examples if tool is available
+            troubleshooting = []
+            if self.tavily_client:
+                troubleshooting = await self.tavily_client.get_troubleshooting_examples(topic)
             
             return {
                 "rag_content": [self._format_rag_result(r) for r in rag_results],

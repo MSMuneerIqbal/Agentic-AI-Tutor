@@ -39,7 +39,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: RegisterModalProps) 
     setIsLoading(true)
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/register`, {
+      const response = await fetch('http://localhost:8000/api/v1/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -56,6 +56,8 @@ export function RegisterModal({ onClose, onSwitchToLogin }: RegisterModalProps) 
         setUser(userData.user)
         toast.success('Welcome to Tutor GPT!')
         onClose()
+        // Navigate to dashboard
+        window.location.href = '/dashboard'
       } else {
         const error = await response.json()
         toast.error(error.detail || 'Registration failed')

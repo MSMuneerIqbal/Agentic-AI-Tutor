@@ -1,7 +1,6 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState } from 'react'
-import { io, Socket } from 'socket.io-client'
 
 // Types
 interface User {
@@ -27,12 +26,12 @@ interface Session {
 interface AppContextType {
   user: User | null
   session: Session | null
-  socket: Socket | null
+  websocket: WebSocket | null
   isConnected: boolean
   setUser: (user: User | null) => void
   setSession: (session: Session | null) => void
-  connectSocket: () => void
-  disconnectSocket: () => void
+  connectWebSocket: () => void
+  disconnectWebSocket: () => void
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined)
@@ -48,90 +47,136 @@ export function useApp() {
 export function Providers({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
-  const [socket, setSocket] = useState<Socket | null>(null)
+  const [websocket, setWebSocket] = useState<WebSocket | null>(null)
   const [isConnected, setIsConnected] = useState(false)
 
-  const connectSocket = () => {
-    if (socket?.connected) return
+  const connectWebSocket = () => {
+    if (websocket?.readyState === WebSocket.OPEN) return
 
-    const newSocket = io(process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000', {
-      transports: ['websocket'],
-      autoConnect: true,
-    })
+    try {
+      const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000'
+      const newWebSocket = new WebSocket(`${wsUrl}/ws/sessions/${user?.id || 'default'}`)
 
-    newSocket.on('connect', () => {
-      console.log('Connected to server')
-      setIsConnected(true)
-    })
+      newWebSocket.onopen = () => {
+        console.log('Connected to server')
+        setIsConnected(true)
+      }
 
-    newSocket.on('disconnect', () => {
-      console.log('Disconnected from server')
-      setIsConnected(false)
-    })
+      newWebSocket.onclose = () => {
+        console.log('Disconnected from server')
+        setIsConnected(false)
+      }
 
-    newSocket.on('session_update', (data: Session) => {
-      setSession(data)
-    })
+      newWebSocket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          console.log('WebSocket message received:', data)
+          
+          if (data.type === 'session_update') {
+            setSession(data)
+          } else if (data.type === 'user_update') {
+            setUser(data)
+          } else if (data.type === 'agent_message') {
+            // Agent messages are handled by the chat component
+            console.log('Agent message received:', data.text)
+          } else if (data.type === 'error') {
+            console.error('WebSocket error:', data.message)
+          }
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error)
+        }
+      }
 
-    newSocket.on('user_update', (data: User) => {
-      setUser(data)
-    })
+      newWebSocket.onerror = (error) => {
+        console.error('WebSocket error:', error)
+        setIsConnected(false)
+      }
 
-    setSocket(newSocket)
+      setWebSocket(newWebSocket)
+    } catch (error) {
+      console.error('Failed to create WebSocket connection:', error)
+    }
   }
 
-  const disconnectSocket = () => {
-    if (socket) {
-      socket.disconnect()
-      setSocket(null)
+  const disconnectWebSocket = () => {
+    if (websocket) {
+      websocket.close()
+      setWebSocket(null)
       setIsConnected(false)
     }
   }
 
   useEffect(() => {
-    // Load user from localStorage on mount
-    const savedUser = localStorage.getItem('tutor-gpt-user')
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser))
-      } catch (error) {
-        console.error('Error parsing saved user:', error)
-        localStorage.removeItem('tutor-gpt-user')
+    // Load user from localStorage on mount (fallback)
+    const loadUser = () => {
+      const savedUser = localStorage.getItem('tutor-gpt-user') || sessionStorage.getItem('tutor-gpt-user')
+      if (savedUser) {
+        try {
+          const userData = JSON.parse(savedUser)
+          setUser(userData)
+          // Ensure both localStorage and sessionStorage have the data
+          localStorage.setItem('tutor-gpt-user', savedUser)
+          sessionStorage.setItem('tutor-gpt-user', savedUser)
+          return true
+        } catch (error) {
+          console.error('Error parsing saved user:', error)
+          localStorage.removeItem('tutor-gpt-user')
+          sessionStorage.removeItem('tutor-gpt-user')
+          return false
+        }
       }
+      return false
     }
 
-    // Connect to socket if user exists
-    if (savedUser) {
-      connectSocket()
-    }
+    // Add a small delay to handle Fast Refresh timing issues
+    const timeoutId = setTimeout(() => {
+      const userLoaded = loadUser()
+      if (userLoaded) {
+        connectWebSocket()
+      }
+    }, 50)
 
     return () => {
-      disconnectSocket()
+      clearTimeout(timeoutId)
+      disconnectWebSocket()
     }
   }, [])
 
   useEffect(() => {
-    // Save user to localStorage when it changes
+    // Save user to both localStorage and sessionStorage when it changes
     if (user) {
-      localStorage.setItem('tutor-gpt-user', JSON.stringify(user))
-      if (!socket?.connected) {
-        connectSocket()
+      const userData = JSON.stringify(user)
+      localStorage.setItem('tutor-gpt-user', userData)
+      sessionStorage.setItem('tutor-gpt-user', userData)
+      
+      // Store user data in backend session for agent context
+      if (websocket && websocket.readyState === WebSocket.OPEN) {
+        websocket.send(JSON.stringify({
+          type: 'user_data_update',
+          user_data: user,
+          timestamp: new Date().toISOString()
+        }))
+      }
+      
+      if (websocket?.readyState !== WebSocket.OPEN) {
+        connectWebSocket()
       }
     } else {
       localStorage.removeItem('tutor-gpt-user')
-      disconnectSocket()
+      sessionStorage.removeItem('tutor-gpt-user')
+      disconnectWebSocket()
     }
   }, [user])
 
   const value: AppContextType = {
     user,
     session,
-    socket,
+    websocket,
     isConnected,
     setUser,
     setSession,
-    connectSocket,
-    disconnectSocket,
+    connectWebSocket,
+    disconnectWebSocket,
   }
 
   return (

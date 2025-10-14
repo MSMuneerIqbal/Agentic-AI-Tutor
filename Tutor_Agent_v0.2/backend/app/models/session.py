@@ -26,6 +26,10 @@ class SessionState(str, Enum):
     TUTORING = "tutoring"
     QUIZZING = "quizzing"
     REMEDIATING = "remediating"
+    TOPIC_SKIP_ASSESSMENT = "topic_skip_assessment"
+    COLLABORATING = "collaborating"
+    ADVANCING = "advancing"
+    COMPLETING = "completing"
     DONE = "done"
 
 

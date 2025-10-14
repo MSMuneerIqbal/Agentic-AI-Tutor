@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from app.core.database import get_db
-from app.models.quiz import QuizResult
+from app.models.quiz import QuizAttempt
 from app.models.assessment import AssessmentResult
 from app.services.analytics_service import get_analytics_service
 

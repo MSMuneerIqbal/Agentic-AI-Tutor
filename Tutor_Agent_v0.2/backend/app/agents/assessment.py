@@ -329,8 +329,8 @@ Available Advanced Tools:
         user_id = context.get("user_id")
         session_id = context.get("session_id")
 
-        # First interaction - ask first question
-        if self.questions_asked == 0:
+        # First interaction - ask first question (only if no user input provided)
+        if self.questions_asked == 0 and (not user_input or user_input.strip() == ""):
             return await self._ask_question(1, answers, user_id, session_id)
 
         # Validate user input
@@ -342,15 +342,15 @@ Available Advanced Tools:
                     "You can also type the full answer if you prefer!"
                 ),
                 "action": "collect_answer",
-                "question_number": self.questions_asked,
+                "question_number": self.questions_asked + 1,
                 "answers": answers,
                 "error": "invalid_input",
             }
 
         # Store answer
         answers.append({
-            "question_number": self.questions_asked,
-            "question": self.questions[self.questions_asked - 1]["question"],
+            "question_number": self.questions_asked + 1,
+            "question": self.questions[self.questions_asked]["question"],
             "answer": user_input,
             "normalized_answer": self._normalize_answer(user_input),
         })

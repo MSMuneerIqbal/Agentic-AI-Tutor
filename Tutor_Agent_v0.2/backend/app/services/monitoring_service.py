@@ -9,7 +9,7 @@ import json
 import psutil
 import time
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Callable
+from typing import Dict, List, Optional, Any, Callable, Tuple
 from dataclasses import dataclass
 from enum import Enum
 

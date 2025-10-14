@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Providers } from '@/components/providers'
-import { Toaster } from 'react-hot-toast'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -11,19 +10,25 @@ export const metadata: Metadata = {
   description: 'Master Docker and Kubernetes with personalized AI tutoring, collaborative learning, and real-time feedback.',
   keywords: ['Docker', 'Kubernetes', 'AI Tutor', 'Learning', 'DevOps', 'Cloud Native'],
   authors: [{ name: 'Tutor GPT Team' }],
-  viewport: 'width=device-width, initial-scale=1',
   robots: 'index, follow',
+  metadataBase: new URL('http://localhost:3000'),
   openGraph: {
     title: 'Tutor GPT - AI-Powered Docker & Kubernetes Learning',
     description: 'Master Docker and Kubernetes with personalized AI tutoring, collaborative learning, and real-time feedback.',
     type: 'website',
     locale: 'en_US',
+    images: ['/og.png'],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Tutor GPT - AI-Powered Docker & Kubernetes Learning',
     description: 'Master Docker and Kubernetes with personalized AI tutoring, collaborative learning, and real-time feedback.',
   },
+}
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
 }
 
 export default function RootLayout({
@@ -36,30 +41,6 @@ export default function RootLayout({
       <body className={`${inter.className} h-full antialiased`}>
         <Providers>
           {children}
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 4000,
-              style: {
-                background: '#363636',
-                color: '#fff',
-              },
-              success: {
-                duration: 3000,
-                iconTheme: {
-                  primary: '#22c55e',
-                  secondary: '#fff',
-                },
-              },
-              error: {
-                duration: 5000,
-                iconTheme: {
-                  primary: '#ef4444',
-                  secondary: '#fff',
-                },
-              },
-            }}
-          />
         </Providers>
       </body>
     </html>

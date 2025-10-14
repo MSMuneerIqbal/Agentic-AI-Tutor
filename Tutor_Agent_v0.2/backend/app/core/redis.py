@@ -254,3 +254,13 @@ async def get_redis() -> RedisClient:
     """
     return redis_client
 
+
+def get_redis_client() -> RedisClient:
+    """
+    Get Redis client instance (synchronous version).
+
+    Returns:
+        RedisClient instance
+    """
+    return redis_client
+
