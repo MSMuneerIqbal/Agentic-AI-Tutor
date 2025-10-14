@@ -53,7 +53,7 @@ async def get_user_profile(
     Returns user profile including latest assessment result.
     """
     try:
-        profile = await profile_service.get_user_profile(user_id, db)
+        profile = await profile_service.get_user_profile(user_id)
         
         if not profile:
             raise HTTPException(status_code=404, detail="User not found")
@@ -81,7 +81,7 @@ async def get_assessment_history(
     Returns list of previous assessments with learning styles.
     """
     try:
-        assessments = await profile_service.get_assessment_history(user_id, limit, db)
+        assessments = await profile_service.get_assessment_history(user_id)
         
         logger.info(f"Retrieved {len(assessments)} assessments for user: {user_id}")
         
@@ -102,7 +102,7 @@ async def get_learning_style_stats(
     Returns aggregated statistics about learning styles across all users.
     """
     try:
-        stats = await profile_service.get_learning_style_stats(db)
+        stats = await profile_service.get_learning_style_stats()
         
         logger.info(f"Retrieved learning style stats: {stats['total_assessments']} total assessments")
         

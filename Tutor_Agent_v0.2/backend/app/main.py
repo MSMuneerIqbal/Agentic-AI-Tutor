@@ -5,11 +5,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import metrics, profiles, sessions, websocket
+from app.api.routes import metrics, plans, profiles, sessions, websocket, rag, phase6, auth, assessments
 from app.core.config import get_settings
 from app.core.logging import setup_logging, get_logger
 from app.core.metrics import get_metrics_collector
-from app.core.redis import redis_client
+# from app.core.redis import redis_client  # Disabled temporarily
+from app.core.mongodb import connect_to_mongo, close_mongo_connection
 
 settings = get_settings()
 
@@ -23,13 +24,23 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     # Startup
     logger.info("Starting Tutor GPT API")
-    await redis_client.connect()
-    logger.info("Redis connected")
+    # await redis_client.connect()  # Disabled temporarily
+    # logger.info("Redis connected")  # Disabled temporarily
+    
+    # Connect to MongoDB with error handling
+    mongo_connected = await connect_to_mongo()
+    if mongo_connected:
+        logger.info("MongoDB connected")
+    else:
+        logger.warning("MongoDB connection failed - some features may not work")
+    
     yield
     # Shutdown
     logger.info("Shutting down Tutor GPT API")
-    await redis_client.disconnect()
-    logger.info("Redis disconnected")
+    # await redis_client.disconnect()  # Disabled temporarily
+    # logger.info("Redis disconnected")  # Disabled temporarily
+    await close_mongo_connection()
+    logger.info("MongoDB disconnected")
 
 
 app = FastAPI(
@@ -41,8 +52,10 @@ app = FastAPI(
 
 # Metrics middleware (first, to track all requests)
 from app.api.middleware import MetricsMiddleware
+# from app.middleware.rate_limiting import RateLimitingMiddleware
 
 app.add_middleware(MetricsMiddleware)
+# app.add_middleware(RateLimitingMiddleware)  # Disabled temporarily
 
 # CORS middleware
 app.add_middleware(
@@ -54,8 +67,13 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth.router)
 app.include_router(sessions.router, prefix="/api/v1", tags=["sessions"])
 app.include_router(profiles.router, prefix="/api/v1", tags=["profiles"])
+app.include_router(assessments.router, prefix="/api/v1", tags=["assessments"])
+app.include_router(plans.router, prefix="/api/v1", tags=["plans"])
+app.include_router(rag.router, prefix="/api/v1", tags=["rag"])
+app.include_router(phase6.router, tags=["phase6"])
 app.include_router(websocket.router, tags=["websocket"])
 app.include_router(metrics.router, tags=["metrics"])
 

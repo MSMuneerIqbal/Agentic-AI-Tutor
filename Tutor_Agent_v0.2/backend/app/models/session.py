@@ -22,9 +22,14 @@ class SessionState(str, Enum):
 
     GREETING = "greeting"
     ASSESSING = "assessing"
+    PLANNING = "planning"
     TUTORING = "tutoring"
     QUIZZING = "quizzing"
     REMEDIATING = "remediating"
+    TOPIC_SKIP_ASSESSMENT = "topic_skip_assessment"
+    COLLABORATING = "collaborating"
+    ADVANCING = "advancing"
+    COMPLETING = "completing"
     DONE = "done"
 
 

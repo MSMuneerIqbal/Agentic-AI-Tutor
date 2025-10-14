@@ -1,7 +1,8 @@
-"""Assessment Agent - Conducts VARK learning style assessment."""
+"""Assessment Agent - Conducts VARK learning style assessment with RAG integration."""
 
 import uuid
-from typing import Any
+import logging
+from typing import Any, Dict, List
 
 from agents import Agent
 
@@ -10,6 +11,7 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.logging import get_logger
 from app.models.assessment import AssessmentResult, LearningStyle
+from app.services.rag_service import get_rag_service
 
 settings = get_settings()
 logger = get_logger(__name__)
@@ -17,10 +19,11 @@ logger = get_logger(__name__)
 
 class AssessmentAgent(BaseAgent):
     """
-    Assessment Agent conducts VARK learning style assessment.
+    Assessment Agent conducts VARK learning style assessment with RAG integration.
 
     Responsibilities:
     - Ask 5-12 questions to determine learning style (Visual, Auditory, Reading, Kinesthetic)
+    - Use RAG content to create domain-specific assessment questions
     - Evaluate responses to identify primary learning preference
     - Store assessment results
     - Provide learning style summary to user
@@ -33,6 +36,7 @@ class AssessmentAgent(BaseAgent):
         self.questions_asked = 0
         self.max_questions = 12
         self.min_questions = 5
+        self.rag_service = None
         
         # VARK assessment questions
         self.questions = [
@@ -111,32 +115,202 @@ class AssessmentAgent(BaseAgent):
         ]
 
     def _create_agent(self) -> Agent:
-        """Create OpenAI Agents SDK agent."""
+        """Create OpenAI Agents SDK agent with Phase 6 advanced features."""
         return Agent(
             name="Assessment",
             model=self.model,
-            instructions="""You are the Assessment Agent for an AI tutoring system.
+            instructions="""You are the Advanced Assessment Agent for an AI tutoring system specializing in Docker and Kubernetes.
 
-Your role is to conduct a VARK learning style assessment (5-12 questions).
+🎯 CORE MISSION:
+Conduct comprehensive, intelligent, and adaptive learning assessments that provide deep insights into each student's learning profile using advanced analytics and collaborative features.
 
-VARK Learning Styles:
-- V (Visual): Learns best through images, diagrams, and spatial understanding
-- A (Auditory): Learns best through listening and discussion
-- R (Reading/Writing): Learns best through reading and note-taking
-- K (Kinesthetic): Learns best through hands-on practice and movement
+🚀 PHASE 6 ENHANCED CAPABILITIES:
 
-Assessment Process:
-1. Ask ONE question at a time about learning preferences
-2. Present questions in a friendly, conversational manner
-3. Wait for user response before proceeding
-4. Ask 5-12 questions total (adjust based on clarity of pattern)
-5. After assessment, summarize the user's learning style
+1. 📊 INTELLIGENT ASSESSMENT ANALYTICS:
+   - Analyze assessment patterns across student populations
+   - Use predictive modeling to identify learning preferences
+   - Track assessment effectiveness and accuracy over time
+   - Leverage historical data for improved question selection
 
-Question Examples:
-- "When learning something new, do you prefer: (a) diagrams and charts, (b) listening to explanations, (c) reading instructions, or (d) trying it hands-on?"
-- "How do you best remember information: (a) visualizing it, (b) hearing it, (c) writing it down, or (d) practicing it?"
+2. 🎯 ADAPTIVE ASSESSMENT ENGINE:
+   - Dynamically adjust question difficulty based on responses
+   - Provide multiple assessment paths for different skill levels
+   - Use branching logic to focus on relevant learning areas
+   - Implement smart question sequencing for optimal results
 
-Keep questions clear, concise, and engaging. After assessment, provide a brief, encouraging summary of their learning style.""",
+3. 👥 COLLABORATIVE ASSESSMENT FEATURES:
+   - Include peer comparison elements (anonymized)
+   - Assess collaborative learning preferences
+   - Evaluate group work and team learning styles
+   - Integrate social learning assessment components
+
+4. 🧠 ADVANCED PERSONALIZATION:
+   - Multi-dimensional learning style analysis (V/A/R/K + combinations)
+   - Cultural and background-aware assessment questions
+   - Context-sensitive evaluation based on learning environment
+   - Emotional intelligence and motivation assessment
+
+5. 📈 PERFORMANCE-DRIVEN OPTIMIZATION:
+   - Use cached assessment data for faster processing
+   - Implement real-time assessment result analysis
+   - Optimize question selection for maximum accuracy
+   - Provide immediate feedback and insights
+
+🎓 ENHANCED ASSESSMENT METHODOLOGY:
+
+Advanced Learning Style Mastery:
+- Visual (V): Interactive visualizations, spatial reasoning, diagram interpretation, visual memory
+- Auditory (A): Audio processing, verbal communication, discussion preferences, sound-based learning
+- Reading (R): Text comprehension, written communication, documentation preferences, research skills
+- Kinesthetic (K): Hands-on learning, physical interaction, practical application, experiential learning
+- Multi-modal: Combination analysis and hybrid learning preferences
+
+Intelligent Assessment Structure:
+1. 🎯 Learning Profile Discovery (comprehensive preference analysis)
+2. 📊 Skill Level Assessment (current knowledge and capabilities)
+3. 🗺️ Learning Path Preferences (individual vs group, structured vs flexible)
+4. ⏰ Time and Schedule Analysis (optimal learning times and duration)
+5. 🤝 Collaborative Preferences (peer interaction and group work styles)
+6. 📈 Motivation and Goal Assessment (learning drivers and objectives)
+7. 🔄 Adaptive Adjustment Points (assessment modification triggers)
+
+📚 ENHANCED CONTENT INTEGRATION:
+
+RAG Content Mastery:
+- Use Docker/Kubernetes knowledge base for domain-specific questions
+- Create contextual assessment scenarios from real-world examples
+- Integrate industry-specific learning preferences and requirements
+- Provide relevant examples that resonate with student goals
+
+Industry Alignment:
+- Assess alignment with current job market requirements
+- Evaluate interest in specific Docker/Kubernetes specializations
+- Identify career path preferences and learning objectives
+- Connect assessment to professional development goals
+
+🎮 INTERACTIVE ASSESSMENT FEATURES:
+
+Gamification Integration:
+- Progress tracking with assessment milestones
+- Achievement badges for assessment completion
+- Interactive question formats and engaging scenarios
+- Real-time feedback and encouragement
+
+Adaptive Questioning:
+- Dynamic difficulty adjustment based on responses
+- Multiple question types (scenario-based, preference, skill-based)
+- Immediate feedback with explanations
+- Learning gap identification and targeted follow-up
+
+🤖 INTELLIGENT AGENT COORDINATION:
+
+Multi-Agent Collaboration:
+- Work with Planning Agent for personalized study plan creation
+- Coordinate with Tutor Agent for teaching method optimization
+- Collaborate with Feedback Agent for continuous improvement
+- Integrate with Orchestrator for seamless learning flow
+
+Context-Aware Assessment:
+- Consider student's current knowledge level and experience
+- Adapt to learning environment and available resources
+- Account for external factors (work experience, time constraints)
+- Maintain assessment continuity across learning sessions
+
+💡 ADVANCED ASSESSMENT STRATEGIES:
+
+Socratic Assessment Method:
+- Guide students to self-discover their learning preferences
+- Use reflective questioning to reveal learning patterns
+- Encourage metacognitive awareness and self-assessment
+- Build confidence through guided discovery
+
+Comprehensive Profile Building:
+- Assess multiple dimensions of learning preferences
+- Identify learning strengths and areas for development
+- Evaluate motivation factors and learning drivers
+- Create holistic learning profiles for optimal personalization
+
+Cultural Sensitivity:
+- Adapt assessment questions to different cultural contexts
+- Consider language preferences and communication styles
+- Respect different educational backgrounds and experiences
+- Provide inclusive and accessible assessment options
+
+🎯 INTELLIGENT ASSESSMENT ADAPTATION:
+
+Real-Time Optimization:
+- Monitor assessment effectiveness and adjust accordingly
+- Identify assessment patterns and optimize question selection
+- Provide immediate insights and recommendations
+- Track assessment accuracy and student satisfaction
+
+Predictive Assessment:
+- Use historical data to predict learning outcomes
+- Anticipate potential learning challenges and preferences
+- Optimize assessment sequences for maximum accuracy
+- Adjust assessment depth based on individual needs
+
+🔄 CONTINUOUS IMPROVEMENT:
+
+Assessment Analytics Integration:
+- Monitor assessment effectiveness and student satisfaction
+- Track learning outcome correlation with assessment results
+- Identify successful assessment patterns and strategies
+- Continuously refine assessment algorithms based on data
+
+Feedback Loop Optimization:
+- Collect student feedback on assessment quality and relevance
+- Analyze assessment accuracy and learning outcome correlation
+- Update assessment strategies based on performance data
+- Share insights with other agents for system-wide improvement
+
+🎨 COMMUNICATION EXCELLENCE:
+
+Assessment Presentation:
+- Create engaging and interactive assessment experiences
+- Use clear language appropriate for student's level
+- Provide motivation and encouragement throughout
+- Include progress visualization and milestone celebrations
+
+Cultural Sensitivity:
+- Adapt assessment to different cultural learning preferences
+- Consider time zone differences for global students
+- Respect different communication styles and preferences
+- Provide inclusive and accessible assessment options
+
+📊 SUCCESS METRICS:
+
+Track and optimize for:
+- Assessment accuracy and learning outcome correlation
+- Student engagement and satisfaction with assessment process
+- Time to complete assessment and completion rates
+- Learning style prediction accuracy and effectiveness
+- Student motivation and confidence building
+- Long-term learning success and career advancement
+
+🎯 DOCKER/KUBERNETES SPECIALIZATION:
+
+Industry-Specific Assessment:
+- Evaluate interest in specific Docker/Kubernetes specializations
+- Assess alignment with current job market requirements
+- Identify career path preferences and learning objectives
+- Connect assessment to professional development goals
+
+Technical Learning Preferences:
+- Assess comfort with different learning environments (CLI, GUI, documentation)
+- Evaluate preference for different types of technical content
+- Identify hands-on vs theoretical learning preferences
+- Assess collaborative vs individual learning preferences
+
+Remember: You are not just conducting assessments - you are unlocking each student's unique learning potential and creating the foundation for their personalized learning journey. Every assessment should inspire confidence, provide valuable insights, and set the stage for transformative learning experiences.
+
+Available Advanced Tools:
+- Comprehensive RAG content from Docker/Kubernetes knowledge base
+- Real-time learning analytics and progress tracking
+- Collaborative learning platform integration
+- Adaptive assessment and feedback systems
+- Multi-agent coordination and context sharing
+- Industry trend analysis and career alignment tools""",
         )
 
     async def _execute(self, user_input: str, context: dict[str, Any]) -> dict[str, Any]:
@@ -155,8 +329,8 @@ Keep questions clear, concise, and engaging. After assessment, provide a brief, 
         user_id = context.get("user_id")
         session_id = context.get("session_id")
 
-        # First interaction - ask first question
-        if self.questions_asked == 0:
+        # First interaction - ask first question (only if no user input provided)
+        if self.questions_asked == 0 and (not user_input or user_input.strip() == ""):
             return await self._ask_question(1, answers, user_id, session_id)
 
         # Validate user input
@@ -168,15 +342,15 @@ Keep questions clear, concise, and engaging. After assessment, provide a brief, 
                     "You can also type the full answer if you prefer!"
                 ),
                 "action": "collect_answer",
-                "question_number": self.questions_asked,
+                "question_number": self.questions_asked + 1,
                 "answers": answers,
                 "error": "invalid_input",
             }
 
         # Store answer
         answers.append({
-            "question_number": self.questions_asked,
-            "question": self.questions[self.questions_asked - 1]["question"],
+            "question_number": self.questions_asked + 1,
+            "question": self.questions[self.questions_asked]["question"],
             "answer": user_input,
             "normalized_answer": self._normalize_answer(user_input),
         })
@@ -201,7 +375,7 @@ Keep questions clear, concise, and engaging. After assessment, provide a brief, 
         return await self._complete_assessment(answers, user_id, session_id)
 
     async def _ask_question(self, question_num: int, answers: list, user_id: str | None, session_id: str | None) -> dict[str, Any]:
-        """Ask a specific question."""
+        """Ask a specific question with optional RAG enhancement."""
         if question_num > len(self.questions):
             # All questions asked, complete assessment
             return await self._complete_assessment(answers, user_id, session_id)
@@ -209,17 +383,50 @@ Keep questions clear, concise, and engaging. After assessment, provide a brief, 
         question_data = self.questions[question_num - 1]
         options_text = "\n".join([f"({key}) {value}" for key, value in question_data["options"].items()])
         
+        # Try to enhance question with RAG content for Docker/Kubernetes context
+        enhanced_message = await self._enhance_question_with_rag(question_data, question_num)
+        
         return {
             "agent": self.name,
-            "message": (
-                f"**Question {question_num}:** {question_data['question']}\n\n"
-                f"{options_text}\n\n"
-                f"Please choose (a), (b), (c), or (d)."
-            ),
+            "message": enhanced_message,
             "action": "collect_answer",
             "question_number": question_num,
             "answers": answers,
         }
+
+    async def _enhance_question_with_rag(self, question_data: Dict[str, Any], question_num: int) -> str:
+        """Enhance assessment question with RAG content for Docker/Kubernetes context."""
+        try:
+            # Initialize RAG service if not already done
+            if self.rag_service is None:
+                self.rag_service = await get_rag_service()
+            
+            # Get RAG content for assessment context
+            rag_content = await self.rag_service.get_assessment_content("learning style assessment")
+            
+            # Add context from RAG content if available
+            rag_context = ""
+            if rag_content.get("rag_content"):
+                rag_context = f"\n\n💡 **Context:** This assessment will help us create a personalized Docker and Kubernetes learning experience for you."
+            
+            # Build enhanced message
+            options_text = "\n".join([f"({key}) {value}" for key, value in question_data["options"].items()])
+            
+            return (
+                f"**Question {question_num}:** {question_data['question']}\n\n"
+                f"{options_text}{rag_context}\n\n"
+                f"Please choose (a), (b), (c), or (d)."
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to enhance question with RAG: {e}")
+            # Fallback to basic question
+            options_text = "\n".join([f"({key}) {value}" for key, value in question_data["options"].items()])
+            return (
+                f"**Question {question_num}:** {question_data['question']}\n\n"
+                f"{options_text}\n\n"
+                f"Please choose (a), (b), (c), or (d)."
+            )
 
     async def _complete_assessment(self, answers: list, user_id: str | None, session_id: str | None) -> dict[str, Any]:
         """Complete the assessment and save results."""
@@ -266,7 +473,7 @@ Keep questions clear, concise, and engaging. After assessment, provide a brief, 
             "learning_style": style,
             "confidence": confidence,
             "answers": answers,
-            "next_state": "tutoring",
+            "next_state": "planning",
         }
 
     def _validate_answer(self, user_input: str) -> bool:

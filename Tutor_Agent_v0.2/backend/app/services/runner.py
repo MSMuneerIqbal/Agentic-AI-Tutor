@@ -7,6 +7,7 @@ from typing import Any
 
 from app.agents.assessment import AssessmentAgent
 from app.agents.orchestrator import OrchestratorAgent
+from app.agents.planning import PlanningAgent
 from app.core.database import get_db
 from app.core.logging import get_logger
 from app.core.metrics import get_metrics_collector
@@ -28,9 +29,10 @@ class Runner:
     """
 
     def __init__(self):
-        """Initialize Runner with Orchestrator and Assessment Agents."""
+        """Initialize Runner with Orchestrator, Assessment, and Planning Agents."""
         self.orchestrator = OrchestratorAgent()
         self.assessment = AssessmentAgent()
+        self.planning = PlanningAgent()
 
     async def run_first_runner(self, session_id: str) -> dict[str, Any]:
         """
@@ -124,6 +126,9 @@ class Runner:
             if session_state == SessionState.ASSESSING:
                 # Route to Assessment Agent
                 result = await self.assessment.run(user_input, session_context)
+            elif session_state == SessionState.PLANNING:
+                # Route to Planning Agent
+                result = await self.planning.run(user_input, session_context)
             else:
                 # Route to Orchestrator Agent
                 result = await self.orchestrator.run(user_input, session_context)

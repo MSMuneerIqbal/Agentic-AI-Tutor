@@ -3,19 +3,16 @@
 import json
 import uuid
 from datetime import datetime
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
 from app.core.logging import get_logger
 from app.core.metrics import get_metrics_collector
-from app.core.redis import redis_client
-from app.models.session import Session, SessionState
-from app.models.user import User
-from app.services.directive_service import directive_service
+from app.core.session_store import session_store
+from app.models.session import SessionState
+from app.models.user_mongo import User
 
 logger = get_logger(__name__)
 metrics = get_metrics_collector()
@@ -37,14 +34,11 @@ class SessionStartResponse(BaseModel):
 
 
 @router.post("/sessions/start", response_model=SessionStartResponse)
-async def start_session(
-    request: SessionStartRequest,
-    db: AsyncSession = Depends(get_db),
-):
+async def start_session(request: SessionStartRequest):
     """
     Start a new tutoring session.
 
-    Creates a session in the database and returns the session ID.
+    Creates a session in MongoDB and returns the session ID.
     Frontend will use this ID to connect via WebSocket.
     """
     try:
@@ -52,38 +46,48 @@ async def start_session(
         start_time = datetime.utcnow()
         
         # Get or create user
-        user = await get_or_create_user(db, request.user_email)
+        user = await get_or_create_user(request.user_email)
         
-        # Create new session
-        session = Session(
-            user_id=user.id,
-            state=SessionState.GREETING,
-            last_checkpoint="session_started",
-        )
+        # Generate session ID
+        session_id = str(uuid.uuid4())
         
-        db.add(session)
-        await db.commit()
-        await db.refresh(session)
+        # Create session state in MongoDB session store
+        session_data = {
+            "session_id": session_id,
+            "user_id": str(user.id),
+            "user_email": user.email,
+            "state": SessionState.GREETING,
+            "last_checkpoint": "session_started",
+            "created_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat(),
+            "conversation_history": [],
+            "assessment_data": {
+                "vark_responses": [],
+                "experience_questions": [],
+                "answers": [],
+                "completed": False
+            },
+            "progress": {
+                "topics_completed": [],
+                "quiz_scores": [],
+                "time_spent": 0
+            }
+        }
         
-        # Store session state in Redis
-        await store_session_state(session)
+        # Store session in MongoDB
+        await session_store.set_session(f"session:{session_id}", session_data, ttl=86400)
         
-        # Create initial session start directive
-        await directive_service.create_session_start_directive(
-            session_id=str(session.id),
-            user_id=str(user.id),
-            db=db,
-        )
+        # Add to active sessions
+        await session_store.add_to_set("active_sessions", session_id)
         
         # Track metrics
         latency = (datetime.utcnow() - start_time).total_seconds()
         metrics.track_request_latency("/api/v1/sessions/start", latency)
-        metrics.set_sessions_active(await get_active_sessions_count())
         
         logger.info(
             f"Session created successfully",
             extra={
-                "session_id": str(session.id),
+                "session_id": session_id,
                 "user_id": str(user.id),
                 "user_email": user.email,
                 "latency_ms": latency * 1000,
@@ -91,7 +95,7 @@ async def start_session(
         )
         
         return SessionStartResponse(
-            session_id=str(session.id),
+            session_id=session_id,
             message="Session created. Connect via WebSocket to begin.",
         )
         
@@ -103,15 +107,14 @@ async def start_session(
         raise HTTPException(status_code=500, detail="Failed to create session")
 
 
-async def get_or_create_user(db: AsyncSession, user_email: str | None) -> User:
+async def get_or_create_user(user_email: Optional[str]) -> User:
     """Get existing user or create new one."""
     if not user_email:
         # For now, create a temporary user with a generated email
         user_email = f"temp_user_{uuid.uuid4().hex[:8]}@tutorgpt.local"
     
     # Try to find existing user
-    result = await db.execute(select(User).where(User.email == user_email))
-    user = result.scalar_one_or_none()
+    user = await User.find_one(User.email == user_email)
     
     if user:
         logger.info(f"Found existing user: {user.email}")
@@ -123,97 +126,41 @@ async def get_or_create_user(db: AsyncSession, user_email: str | None) -> User:
         display_name=user_email.split("@")[0],  # Use email prefix as display name
     )
     
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
+    await user.insert()
     
     logger.info(f"Created new user: {user.email}")
     return user
 
 
-async def store_session_state(session: Session) -> None:
-    """Store session state in Redis for fast access."""
-    session_data = {
-        "id": str(session.id),
-        "user_id": str(session.user_id),
-        "state": session.state.value,
-        "last_checkpoint": session.last_checkpoint,
-        "created_at": session.created_at.isoformat(),
-        "updated_at": session.updated_at.isoformat(),
-    }
-    
-    # Store with TTL of 24 hours
-    await redis_client.setex(
-        f"session:{session.id}",
-        86400,  # 24 hours
-        json.dumps(session_data),
-    )
-    
-    # Add to active sessions set
-    await redis_client.set_add("active_sessions", str(session.id))
-    
-    logger.debug(f"Stored session state in Redis: {session.id}")
-
-
 async def get_active_sessions_count() -> int:
-    """Get count of active sessions from Redis."""
+    """Get count of active sessions from MongoDB."""
     try:
-        count = await redis_client.set_cardinality("active_sessions")
-        return count
+        count = await session_store.get_set_members("active_sessions")
+        return len(count) if count else 0
     except Exception as e:
         logger.warning(f"Failed to get active sessions count: {e}")
         return 0
 
 
 @router.get("/sessions/{session_id}")
-async def get_session(
-    session_id: str,
-    db: AsyncSession = Depends(get_db),
-):
+async def get_session(session_id: str):
     """
     Get session details.
 
-    Retrieves session from database and Redis cache.
+    Retrieves session from MongoDB session store.
     """
     try:
-        # Try Redis first for fast access
-        session_data_str = await redis_client.get(f"session:{session_id}")
+        # Get session from MongoDB
+        session_data = await session_store.get_session(f"session:{session_id}")
         
-        if session_data_str:
-            session_data = json.loads(session_data_str)
-            logger.debug(f"Retrieved session from Redis cache: {session_id}")
-            return {
-                "session_id": session_id,
-                "data": session_data,
-                "source": "cache",
-            }
-        
-        # Fallback to database
-        result = await db.execute(
-            select(Session).where(Session.id == session_id)
-        )
-        session = result.scalar_one_or_none()
-        
-        if not session:
+        if not session_data:
             raise HTTPException(status_code=404, detail="Session not found")
         
-        # Update Redis cache
-        await store_session_state(session)
-        
-        session_data = {
-            "id": str(session.id),
-            "user_id": str(session.user_id),
-            "state": session.state.value,
-            "last_checkpoint": session.last_checkpoint,
-            "created_at": session.created_at.isoformat(),
-            "updated_at": session.updated_at.isoformat(),
-        }
-        
-        logger.info(f"Retrieved session from database: {session_id}")
+        logger.info(f"Retrieved session: {session_id}")
         return {
             "session_id": session_id,
             "data": session_data,
-            "source": "database",
+            "source": "mongodb",
         }
         
     except HTTPException:
