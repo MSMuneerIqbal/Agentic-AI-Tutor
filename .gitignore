@@ -1,8 +1,21 @@
+# Project-level gitignore
 
-.mypy_cache
-Code_practice
-__pycache__
+# Environment
 .env
-.python-version
-Guardrails
-.venv
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.env.sample
