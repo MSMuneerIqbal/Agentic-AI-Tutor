@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(grep -v \"^backend$\\\\|^frontend$\\\\|^docs$\\\\|^.git$\\\\|^README.md$\")"
-    ]
-  }
-}
