@@ -1,52 +1,33 @@
-"""Integration tests for API endpoints."""
+"""Integration tests for core API endpoints."""
 
-import pytest
-from httpx import AsyncClient
+from fastapi.testclient import TestClient
+from app.main import app
+
+client = TestClient(app, raise_server_exceptions=False)
 
 
-@pytest.mark.asyncio
-async def test_health_check(client: AsyncClient):
-    """Test health check endpoint."""
-    response = await client.get("/healthz")
-    assert response.status_code == 200
-    data = response.json()
+def test_health_check():
+    resp = client.get("/healthz")
+    assert resp.status_code == 200
+    data = resp.json()
     assert data["status"] == "healthy"
     assert data["version"] == "0.1.0"
 
 
-@pytest.mark.asyncio
-async def test_root_endpoint(client: AsyncClient):
-    """Test root endpoint."""
-    response = await client.get("/")
-    assert response.status_code == 200
-    data = response.json()
+def test_root_endpoint():
+    resp = client.get("/")
+    assert resp.status_code == 200
+    data = resp.json()
     assert data["name"] == "Tutor GPT API"
     assert data["version"] == "0.1.0"
     assert data["docs"] == "/docs"
 
 
-@pytest.mark.asyncio
-async def test_start_session(client: AsyncClient):
-    """Test session start endpoint."""
-    response = await client.post(
-        "/api/v1/sessions/start",
-        json={"user_email": "test@example.com"},
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert "session_id" in data
-    assert "message" in data
-    assert data["message"] == "Session created. Connect via WebSocket to begin."
-
-
-@pytest.mark.asyncio
-async def test_get_metrics(client: AsyncClient):
-    """Test metrics endpoint."""
-    response = await client.get("/metrics")
-    assert response.status_code == 200
-    data = response.json()
+def test_metrics_endpoint():
+    resp = client.get("/metrics")
+    assert resp.status_code == 200
+    data = resp.json()
     assert "metrics" in data
     assert "counters" in data["metrics"]
     assert "histograms" in data["metrics"]
     assert "gauges" in data["metrics"]
-

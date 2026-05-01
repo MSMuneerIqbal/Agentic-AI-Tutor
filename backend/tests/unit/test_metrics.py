@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.core.metrics import MetricsCollector, Timer
+from app.core.metrics import MetricsCollector, Timer, get_metrics_collector
 
 
 def test_metrics_collector_counter():
@@ -77,60 +77,43 @@ def test_metrics_percentiles():
 
 
 def test_timer_context_manager():
-    """Test Timer context manager."""
-    collector = MetricsCollector()
-    
-    with Timer("test_operation"):
-        import time
-        time.sleep(0.1)
-    
-    metrics = collector.get_metrics()
-    histogram = metrics["histograms"]["test_operation"]
-    
-    assert histogram["count"] == 1
-    assert histogram["mean"] >= 0.1  # Should be at least 100ms
+    """Test Timer context manager records to the global collector."""
+    import time
+
+    global_collector = get_metrics_collector()
+    before = len(global_collector._histograms.get("test_operation_timer", []))
+
+    with Timer("test_operation_timer"):
+        time.sleep(0.05)
+
+    after_values = global_collector._histograms.get("test_operation_timer", [])
+    assert len(after_values) == before + 1
+    assert after_values[-1] >= 0.04  # at least 40 ms recorded
 
 
 def test_convenience_methods():
     """Test convenience methods for core metrics."""
     collector = MetricsCollector()
-    
-    # Request latency
+
     collector.track_request_latency("/api/v1/sessions", 0.5)
-    metrics = collector.get_metrics()
-    assert "request_latency{endpoint=/api/v1/sessions}" in str(metrics["histograms"])
-    
-    # Lesson generation latency
     collector.track_lesson_generation_latency(2.5)
-    assert "lesson_generation_latency" in metrics["histograms"]
-    
-    # Guardrail triggers
     collector.increment_guardrail_trigger("Tutor", "output_validation")
-    assert "guardrail_trigger_count{agent=Tutor,type=output_validation}" in str(
-        metrics["counters"]
-    )
-    
-    # TAVILY errors
     collector.increment_tavily_error("timeout")
-    assert "tavily_errors_count{error_type=timeout}" in str(metrics["counters"])
-    
-    # Pinecone query latency
     collector.track_pinecone_query_latency(0.3, namespace="docker-k8s")
-    assert "pinecone_query_latency{namespace=docker-k8s}" in str(metrics["histograms"])
-    
-    # Active sessions
     collector.set_sessions_active(42)
-    assert metrics["gauges"]["sessions_active"] == 42.0
-    
-    # Gemini timeouts
     collector.increment_gemini_timeout()
-    assert metrics["counters"]["gemini_timeout_count"] == 1
-    
-    # Tool errors
     collector.increment_tool_error("pinecone", "connection_error")
-    assert "tool_error_count{error_type=connection_error,tool=pinecone}" in str(
-        metrics["counters"]
-    )
+
+    metrics = collector.get_metrics()
+
+    assert "request_latency{endpoint=/api/v1/sessions}" in str(metrics["histograms"])
+    assert "lesson_generation_latency" in metrics["histograms"]
+    assert "guardrail_trigger_count{agent=Tutor,type=output_validation}" in str(metrics["counters"])
+    assert "tavily_errors_count{error_type=timeout}" in str(metrics["counters"])
+    assert "pinecone_query_latency{namespace=docker-k8s}" in str(metrics["histograms"])
+    assert metrics["gauges"]["sessions_active"] == 42.0
+    assert metrics["counters"]["gemini_timeout_count"] == 1
+    assert "tool_error_count{error_type=connection_error,tool=pinecone}" in str(metrics["counters"])
 
 
 def test_metrics_timestamp():
