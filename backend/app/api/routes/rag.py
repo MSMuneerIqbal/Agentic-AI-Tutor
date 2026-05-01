@@ -3,7 +3,7 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, UploadFile, File, Form
 from pydantic import BaseModel
 
 from app.services.rag_service import get_rag_service
@@ -150,4 +150,131 @@ async def get_live_examples(
         }
     except Exception as exc:
         logger.error(f"Failed to get live examples: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ── Knowledge Base Management ──────────────────────────────────────────────────
+
+ALLOWED_CONTENT_TYPES = {
+    "lesson", "example", "explanation", "tutorial",
+    "overview", "structure", "curriculum", "roadmap",
+    "concept", "definition", "comparison", "best_practice",
+    "command", "configuration", "introduction", "welcome",
+}
+
+
+class UploadTextRequest(BaseModel):
+    title: str
+    content: str
+    content_type: str
+    topic: str
+    source: str = "manual_upload"
+
+
+@router.post("/documents", status_code=201)
+async def upload_text_content(request: UploadTextRequest, rag_service=Depends(get_rag_service)):
+    """Upload plain text content into Pinecone."""
+    if not request.title.strip() or not request.content.strip():
+        raise HTTPException(status_code=422, detail="title and content are required")
+    if request.content_type not in ALLOWED_CONTENT_TYPES:
+        raise HTTPException(status_code=422, detail=f"Invalid content_type. Choose from: {sorted(ALLOWED_CONTENT_TYPES)}")
+    try:
+        result = await rag_service.upload_content(
+            title=request.title.strip(),
+            content=request.content.strip(),
+            content_type=request.content_type,
+            topic=request.topic.strip(),
+            source=request.source or "manual_upload",
+        )
+        return result
+    except Exception as exc:
+        logger.error(f"upload_text_content failed: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.post("/documents/file", status_code=201)
+async def upload_file_content(
+    file: UploadFile = File(...),
+    title: str = Form(...),
+    content_type: str = Form(...),
+    topic: str = Form(...),
+    source: str = Form(default="file_upload"),
+    rag_service=Depends(get_rag_service),
+):
+    """Upload a .txt, .md, or .pdf file into Pinecone."""
+    if content_type not in ALLOWED_CONTENT_TYPES:
+        raise HTTPException(status_code=422, detail=f"Invalid content_type. Choose from: {sorted(ALLOWED_CONTENT_TYPES)}")
+
+    filename = file.filename or ""
+    ext = filename.rsplit(".", 1)[-1].lower()
+
+    raw = await file.read()
+    text = ""
+
+    if ext in ("txt", "md"):
+        text = raw.decode("utf-8", errors="ignore")
+    elif ext == "pdf":
+        try:
+            import io
+            import pdfplumber
+            with pdfplumber.open(io.BytesIO(raw)) as pdf:
+                text = "\n\n".join(page.extract_text() or "" for page in pdf.pages)
+        except Exception as e:
+            raise HTTPException(status_code=422, detail=f"PDF parse error: {e}")
+    elif ext == "docx":
+        try:
+            import io
+            from docx import Document
+            doc = Document(io.BytesIO(raw))
+            text = "\n\n".join(p.text for p in doc.paragraphs if p.text.strip())
+        except Exception as e:
+            raise HTTPException(status_code=422, detail=f"DOCX parse error: {e}")
+    else:
+        raise HTTPException(status_code=422, detail="Supported formats: .txt, .md, .pdf, .docx")
+
+    if not text.strip():
+        raise HTTPException(status_code=422, detail="Could not extract text from file.")
+
+    try:
+        result = await rag_service.upload_content(
+            title=title.strip(),
+            content=text.strip(),
+            content_type=content_type,
+            topic=topic.strip(),
+            source=source or filename,
+        )
+        return result
+    except Exception as exc:
+        logger.error(f"upload_file_content failed: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/documents")
+async def list_documents(rag_service=Depends(get_rag_service)):
+    """List all documents stored in Pinecone."""
+    try:
+        docs = await rag_service.list_content()
+        return {"documents": docs, "total": len(docs)}
+    except Exception as exc:
+        logger.error(f"list_documents failed: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.delete("/documents/{doc_id}")
+async def delete_document(doc_id: str, rag_service=Depends(get_rag_service)):
+    """Delete all chunks of a document by doc_id."""
+    try:
+        return await rag_service.delete_document(doc_id)
+    except Exception as exc:
+        logger.error(f"delete_document failed: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.delete("/documents")
+async def delete_all_documents(rag_service=Depends(get_rag_service)):
+    """Delete ALL content from Pinecone (destructive)."""
+    try:
+        return await rag_service.delete_all_content()
+    except Exception as exc:
+        logger.error(f"delete_all_documents failed: {exc}")
         raise HTTPException(status_code=500, detail=str(exc))

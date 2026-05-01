@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { 
-  ChartBarIcon, 
-  AcademicCapIcon, 
-  UserGroupIcon, 
+import {
+  ChartBarIcon,
+  AcademicCapIcon,
+  UserGroupIcon,
   ChatBubbleLeftRightIcon,
   CogIcon,
   BellIcon,
@@ -15,7 +15,8 @@ import {
   TrophyIcon,
   ClockIcon,
   BookOpenIcon,
-  XMarkIcon
+  XMarkIcon,
+  CircleStackIcon,
 } from '@heroicons/react/24/outline'
 import { useApp } from '@/components/providers'
 import { Sidebar } from '@/components/dashboard/sidebar'
@@ -26,6 +27,7 @@ import { RecentActivity } from '@/components/dashboard/recent-activity'
 import { StudyGroups } from '@/components/dashboard/study-groups'
 import { QuickActions } from '@/components/dashboard/quick-actions'
 import { ChatInterface } from '@/components/chat/chat-interface'
+import { RagManager } from '@/components/dashboard/rag-manager'
 
 export function Dashboard() {
   const { user, session, setUser } = useApp()
@@ -95,6 +97,7 @@ export function Dashboard() {
     { id: 'learning', name: 'Learning', icon: AcademicCapIcon },
     { id: 'groups', name: 'Study Groups', icon: UserGroupIcon },
     { id: 'chat', name: 'AI Chat', icon: ChatBubbleLeftRightIcon },
+    { id: 'knowledge', name: 'Knowledge Base', icon: CircleStackIcon },
     { id: 'settings', name: 'Settings', icon: CogIcon },
   ]
 
@@ -194,6 +197,8 @@ export function Dashboard() {
             <ChatInterface user={user} />
           </div>
         )
+      case 'knowledge':
+        return <RagManager />
       case 'settings':
         return (
           <div className="space-y-6">

@@ -111,12 +111,36 @@ export const quizAPI = {
 export const ragAPI = {
   searchContent: (query: string, agentType?: string) =>
     api.get('/api/v1/rag/content', { params: { query, agent_type: agentType } }),
-  
+
   getTopicContent: (topic: string) =>
     api.get(`/api/v1/rag/topic/${topic}`),
-  
+
   getLiveExamples: (topic: string) =>
     api.get(`/api/v1/rag/live-examples/${topic}`),
+}
+
+export const ragAdminAPI = {
+  listDocuments: () =>
+    api.get('/api/v1/rag/documents'),
+
+  uploadText: (data: {
+    title: string
+    content: string
+    content_type: string
+    topic: string
+    source?: string
+  }) => api.post('/api/v1/rag/documents', data),
+
+  uploadFile: (formData: FormData) =>
+    api.post('/api/v1/rag/documents/file', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+
+  deleteDocument: (docId: string) =>
+    api.delete(`/api/v1/rag/documents/${docId}`),
+
+  deleteAll: () =>
+    api.delete('/api/v1/rag/documents'),
 }
 
 export const collaborationAPI = {

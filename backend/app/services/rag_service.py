@@ -110,6 +110,39 @@ class RAGService:
             include_web=False,
         )
 
+    # ── content management ─────────────────────────────────────────────────────
+
+    async def upload_content(
+        self,
+        title: str,
+        content: str,
+        content_type: str,
+        topic: str,
+        source: str = "manual_upload",
+    ) -> Dict[str, Any]:
+        await self._ensure_initialized()
+        if not self.rag_tool:
+            raise RuntimeError("RAG tool not available.")
+        return await self.rag_tool.upload_content(title, content, content_type, topic, source)
+
+    async def list_content(self) -> List[Dict[str, Any]]:
+        await self._ensure_initialized()
+        if not self.rag_tool:
+            return []
+        return await self.rag_tool.list_content()
+
+    async def delete_document(self, doc_id: str) -> Dict[str, Any]:
+        await self._ensure_initialized()
+        if not self.rag_tool:
+            raise RuntimeError("RAG tool not available.")
+        return await self.rag_tool.delete_document(doc_id)
+
+    async def delete_all_content(self) -> Dict[str, Any]:
+        await self._ensure_initialized()
+        if not self.rag_tool:
+            raise RuntimeError("RAG tool not available.")
+        return await self.rag_tool.delete_all_content()
+
     # ── format helpers ──────────────────────────────────────────────────────────
 
     def _fmt_rag(self, r: RAGResult) -> Dict[str, Any]:

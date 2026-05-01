@@ -24,6 +24,7 @@ dependencies = [
     "pytest-playwright>=0.7.1",
     "python-docx>=1.2.0",
     "python-dotenv>=1.1.1",
+    "python-multipart>=0.0.9",
     "bcrypt>=4.0.0",
     "email-validator>=2.1.0",
     # "redis>=6.4.0",  # Removed - using MongoDB only

@@ -5,6 +5,8 @@ Stores and retrieves course content chunks from Pinecone. Dimension: 1536.
 """
 
 import logging
+import uuid
+import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -12,6 +14,9 @@ from app.core.config import get_settings
 from app.core.openai_manager import generate_embedding
 
 logger = logging.getLogger(__name__)
+
+CHUNK_SIZE = 800
+CHUNK_OVERLAP = 100
 
 
 @dataclass
@@ -117,6 +122,131 @@ class RAGTool:
             agent_type="quiz",
             max_results=5,
         )
+
+    # ── content management ─────────────────────────────────────────────────────
+
+    def _chunk_text(self, text: str) -> List[str]:
+        """Split text into overlapping chunks."""
+        paragraphs = [p.strip() for p in re.split(r"\n{2,}", text) if p.strip()]
+        chunks: List[str] = []
+        current = ""
+        for para in paragraphs:
+            if len(current) + len(para) + 1 <= CHUNK_SIZE:
+                current = f"{current}\n{para}".strip()
+            else:
+                if current:
+                    chunks.append(current)
+                if len(para) <= CHUNK_SIZE:
+                    current = para
+                else:
+                    # hard-split long paragraphs
+                    for i in range(0, len(para), CHUNK_SIZE - CHUNK_OVERLAP):
+                        chunks.append(para[i : i + CHUNK_SIZE])
+                    current = ""
+        if current:
+            chunks.append(current)
+        return chunks or [text[:CHUNK_SIZE]]
+
+    async def upload_content(
+        self,
+        title: str,
+        content: str,
+        content_type: str,
+        topic: str,
+        source: str = "manual_upload",
+    ) -> Dict[str, Any]:
+        """Chunk text, embed it, and upsert into Pinecone. Returns upload summary."""
+        if self.index is None:
+            raise RuntimeError("Pinecone index unavailable.")
+
+        doc_id = str(uuid.uuid4())
+        chunks = self._chunk_text(content)
+        vectors = []
+        for i, chunk in enumerate(chunks):
+            embedding = await generate_embedding(chunk)
+            vid = f"{doc_id}_chunk_{i}"
+            vectors.append({
+                "id": vid,
+                "values": embedding,
+                "metadata": {
+                    "doc_id": doc_id,
+                    "title": title,
+                    "content": chunk,
+                    "content_type": content_type,
+                    "topic": topic,
+                    "source": source,
+                    "chunk_index": i,
+                    "total_chunks": len(chunks),
+                },
+            })
+
+        # upsert in batches of 100
+        for i in range(0, len(vectors), 100):
+            self.index.upsert(vectors=vectors[i : i + 100])
+
+        logger.info(f"Uploaded '{title}' → {len(chunks)} chunks (doc_id={doc_id})")
+        return {"doc_id": doc_id, "title": title, "chunks_uploaded": len(chunks)}
+
+    async def list_content(self, max_items: int = 200) -> List[Dict[str, Any]]:
+        """Return all documents stored in Pinecone (grouped by doc_id)."""
+        if self.index is None:
+            return []
+        try:
+            all_ids: List[str] = []
+            for id_batch in self.index.list(limit=max_items):
+                if isinstance(id_batch, list):
+                    all_ids.extend(id_batch)
+                else:
+                    all_ids.append(id_batch)
+                if len(all_ids) >= max_items:
+                    break
+
+            if not all_ids:
+                return []
+
+            # fetch metadata in batches of 100
+            docs: Dict[str, Dict] = {}
+            for i in range(0, len(all_ids), 100):
+                batch = all_ids[i : i + 100]
+                fetch_result = self.index.fetch(ids=batch)
+                for vid, vector in fetch_result.vectors.items():
+                    meta = vector.metadata or {}
+                    doc_id = meta.get("doc_id", vid)
+                    chunk_idx = meta.get("chunk_index", 0)
+                    if doc_id not in docs or chunk_idx == 0:
+                        docs[doc_id] = {
+                            "doc_id": doc_id,
+                            "title": meta.get("title", "Untitled"),
+                            "content_preview": meta.get("content", "")[:300],
+                            "content_type": meta.get("content_type", ""),
+                            "topic": meta.get("topic", ""),
+                            "source": meta.get("source", ""),
+                            "total_chunks": meta.get("total_chunks", 1),
+                        }
+            return list(docs.values())
+        except Exception as e:
+            logger.error(f"list_content failed: {e}")
+            return []
+
+    async def delete_document(self, doc_id: str) -> Dict[str, Any]:
+        """Delete all chunks belonging to a document."""
+        if self.index is None:
+            raise RuntimeError("Pinecone index unavailable.")
+        try:
+            self.index.delete(filter={"doc_id": {"$eq": doc_id}})
+            logger.info(f"Deleted document doc_id={doc_id}")
+            return {"deleted": True, "doc_id": doc_id}
+        except Exception as e:
+            logger.error(f"delete_document failed: {e}")
+            raise RuntimeError(str(e))
+
+    async def delete_all_content(self) -> Dict[str, Any]:
+        """Delete ALL vectors from the index."""
+        if self.index is None:
+            raise RuntimeError("Pinecone index unavailable.")
+        self.index.delete(delete_all=True)
+        logger.warning("Deleted ALL content from Pinecone index")
+        return {"deleted_all": True}
 
 
 _rag_tool: RAGTool | None = None
